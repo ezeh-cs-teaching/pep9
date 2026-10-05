@@ -1,0 +1,1824 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pep/9 Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E8ECF0; --surface:#FFFFFF; --sunk:#F3F5F7; --ink:#16202A; --muted:#566371; --line:#CDD5DD;
+  --panel:#1D2934; --panel-2:#253442; --panel-ink:#C5D0DA; --panel-dim:#7E8E9D;
+  --lamp:#FFB21E; --lamp-off:#33424F; --lamp-glow:rgba(255,178,30,.55);
+  --accent:#1C5DA3; --accent-hover:#174E8A; --accent-soft:#DCE8F5;
+  --danger:#B3261E; --danger-soft:#FBE5E3; --bp:#D2453B; --cur:#FFE7A3; --cur-line:#E2A400;
+  --write:#CFE7D6; --sp:#DCE8F5;
+  --sans:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0F151B; --surface:#161F28; --sunk:#121A22; --ink:#E1E8EE; --muted:#93A2B0; --line:#2A3743;
+    --panel:#0B1117; --panel-2:#16212B; --accent:#4D8FD6; --accent-hover:#6AA3E0; --accent-soft:#1B2C3F;
+    --danger:#F0776E; --danger-soft:#3A1D1B; --cur:#4A3A0E; --cur-line:#E2A400; --write:#1D3A28; --sp:#1B2C3F;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0F151B; --surface:#161F28; --sunk:#121A22; --ink:#E1E8EE; --muted:#93A2B0; --line:#2A3743;
+  --panel:#0B1117; --panel-2:#16212B; --accent:#4D8FD6; --accent-hover:#6AA3E0; --accent-soft:#1B2C3F;
+  --danger:#F0776E; --danger-soft:#3A1D1B; --cur:#4A3A0E; --cur-line:#E2A400; --write:#1D3A28; --sp:#1B2C3F;
+  color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+html,body{margin:0}
+body{height:100%;background:var(--paper);color:var(--ink);font:14px/1.45 var(--sans);display:flex;flex-direction:column;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Toolbar */
+.bar{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--surface);border-bottom:1px solid var(--line);flex:0 0 auto;min-width:0}
+.brand{font-weight:600;font-size:16px;white-space:nowrap;letter-spacing:-.01em}
+.brand small{font-weight:400;color:var(--muted);font-size:13px;margin-left:6px}
+.tools{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0;padding:2px}
+.tools::-webkit-scrollbar{display:none}
+.grp{display:flex;gap:4px;align-items:center;padding-right:8px;margin-right:2px;border-right:1px solid var(--line)}
+.grp:last-child{border-right:0}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:5px 10px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;min-height:32px}
+.btn:hover:not(:disabled){background:var(--sunk)}
+.btn:disabled{opacity:.42;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover:not(:disabled){background:var(--accent-hover)}
+.btn svg{width:14px;height:14px;flex:0 0 auto}
+.ts{display:none}
+.btn kbd{font:11px var(--mono);color:var(--muted)}
+select.btn{padding-right:6px;max-width:150px}
+.iconbtn{border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 8px;color:var(--muted);min-height:32px}
+.iconbtn:hover{background:var(--sunk);color:var(--ink)}
+
+/* Workspace */
+.work{flex:1 1 auto;min-height:0;display:grid;gap:10px;padding:10px;
+  grid-template-columns:minmax(380px,1.25fr) minmax(380px,1.05fr) minmax(320px,.85fr);
+  grid-template-rows:auto minmax(0,1fr);
+  grid-template-areas:"code cpu mem" "code io mem"}
+.pane{background:var(--surface);border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.code-pane{grid-area:code}.cpu-pane{grid-area:cpu}.io-pane{grid-area:io}.mem-pane{grid-area:mem}
+.ph{display:flex;align-items:center;gap:2px;padding:0 6px;border-bottom:1px solid var(--line);flex:0 0 auto;min-height:40px}
+.ph h2{font-size:13px;font-weight:600;margin:0 8px}
+.tab{border:0;background:none;padding:10px 10px 8px;border-bottom:2px solid transparent;color:var(--muted);font-weight:500;font-size:13px;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab:hover{color:var(--ink)}
+.ph .spacer{flex:1}
+.ph .btn{min-height:28px;padding:3px 9px;font-size:13px}
+.pb{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;position:relative}
+[hidden]{display:none!important}
+
+/* Editor */
+.editor{flex:1 1 auto;min-height:0;display:flex;font:13px/20px var(--mono);background:var(--surface)}
+.gutter{flex:0 0 auto;margin:0;padding:8px 8px 8px 10px;text-align:right;color:var(--muted);background:var(--sunk);border-right:1px solid var(--line);overflow:hidden;user-select:none;min-width:44px;font:inherit}
+.gutter .e{color:var(--danger);font-weight:600}
+.editor textarea{flex:1;min-width:0;border:0;resize:none;padding:8px 10px;font:inherit;background:transparent;outline:none;tab-size:8;white-space:pre;overflow:auto}
+.editor textarea:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--accent-soft)}
+.errors{flex:0 0 auto;max-height:34%;overflow:auto;border-top:1px solid var(--line);background:var(--danger-soft);font-size:13px}
+.errors button{display:block;width:100%;text-align:left;border:0;background:none;padding:5px 12px;color:var(--danger)}
+.errors button:hover{text-decoration:underline}
+.errors b{font-family:var(--mono);font-weight:600}
+.subbar{display:flex;gap:6px;align-items:center;padding:6px 10px;border-top:1px solid var(--line);flex:0 0 auto;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.subbar .btn{min-height:28px;padding:3px 9px;font-size:13px;color:var(--ink)}
+
+/* Listing */
+.listing{flex:1 1 auto;overflow:auto;font:12.5px/20px var(--mono)}
+.listing table{border-collapse:collapse;min-width:100%}
+.listing th{position:sticky;top:0;background:var(--sunk);text-align:left;font:500 12px var(--sans);color:var(--muted);padding:5px 8px;border-bottom:1px solid var(--line);z-index:1;white-space:nowrap}
+.listing td{padding:0 8px;white-space:pre;vertical-align:top}
+.listing tr.cur td{background:var(--cur)}
+.listing tr.cur td:first-child{box-shadow:inset 3px 0 0 var(--cur-line)}
+.listing td.bpc{padding:0;width:26px;text-align:center}
+.bpb{width:26px;height:20px;border:0;background:none;padding:0;display:grid;place-items:center}
+.bpb::before{content:"";width:10px;height:10px;border-radius:50%;border:1px solid transparent}
+.bpb:hover::before{border-color:var(--bp)}
+tr.bp .bpb::before{background:var(--bp);border-color:var(--bp)}
+.listing .c-addr{color:var(--muted)}.listing .c-obj{color:var(--accent)}.listing .c-com{color:var(--muted)}
+.listing .c-sym{font-weight:600}
+.symtab{padding:10px 12px 16px}
+.symtab h3{font:600 13px var(--sans);margin:6px 0}
+.listing .symtab table{border-collapse:collapse;min-width:0}
+.symtab td{padding:1px 18px 1px 0}
+.empty{margin:auto;padding:24px;max-width:34ch;text-align:center;color:var(--muted)}
+
+/* Front panel */
+.cpu-pane .pb{background:var(--panel);color:var(--panel-ink);container-type:inline-size}
+.front{--ls:11px;--lg:3px;--qg:7px;padding:12px 14px 12px;display:grid;grid-template-columns:auto auto minmax(7ch,1fr) minmax(6.5ch,auto);column-gap:12px;row-gap:6px;align-items:center;font-size:12px}
+.front .lbl{color:var(--panel-dim);white-space:nowrap;display:flex;align-items:baseline;gap:6px;min-width:0}
+.front .lbl b{color:var(--panel-ink);font:600 13px var(--mono);min-width:2.6ch}
+.lamps{display:flex;gap:var(--qg)}
+.lamps .q{display:flex;gap:var(--lg)}
+.lamp{width:var(--ls);height:var(--ls);border-radius:50%;background:var(--lamp-off);box-shadow:inset 0 1px 1px rgba(0,0,0,.4);flex:0 0 auto}
+.lamp.on{background:var(--lamp);box-shadow:0 0 6px var(--lamp-glow),inset 0 -1px 1px rgba(0,0,0,.2)}
+.val{font:500 13px var(--mono);color:#F2F5F8;text-align:right;white-space:nowrap}
+.val.dec{color:var(--panel-dim)}
+.front hr{grid-column:1/-1;border:0;border-top:1px solid var(--panel-2);margin:4px 0;width:100%}
+.decoded{font:500 13px var(--mono);color:var(--lamp);min-height:20px;grid-column:2/-1;white-space:pre-wrap}
+.flags{display:flex;gap:16px}
+.flag{display:flex;align-items:center;gap:6px;font:600 12px var(--mono)}
+.status{display:flex;justify-content:space-between;gap:10px;padding:7px 14px;border-top:1px solid var(--panel-2);font-size:12.5px;color:var(--panel-ink);background:var(--panel-2)}
+.status .st{font-weight:600}
+.status .st.err{color:#FF8A80}.status .st.run{color:var(--lamp)}
+@container (max-width:520px){ .front .lbl span{display:none} }
+@container (max-width:400px){ .front{--ls:9px;--lg:2px;--qg:5px;column-gap:9px;padding:10px} .val{font-size:12px} }
+@container (max-width:330px){ .front{--ls:7px;--lg:2px;--qg:4px} }
+
+/* Data-flow animation */
+.flowctl{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.flowctl select{border:1px solid var(--line);border-radius:5px;background:var(--surface);padding:2px 4px;font-size:12px}
+.bus{grid-column:2/-1;display:flex;flex-direction:column;gap:4px;min-height:22px;justify-content:center}
+.bus-empty{color:var(--panel-dim);font-size:12px}
+.flow{display:grid;grid-template-columns:auto minmax(40px,1fr) auto auto;align-items:center;column-gap:8px;font:500 12px var(--mono);color:var(--panel-ink)}
+.flow .fv{color:var(--lamp)}
+.flow .fl{grid-column:1/-1;font:12px var(--sans);color:var(--panel-dim);line-height:1.2;margin-bottom:2px}
+.wire{position:relative;height:12px}
+.wire::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px solid var(--panel-dim);opacity:.6}
+.wire::after{content:"";position:absolute;top:50%;width:0;height:0;border:5px solid transparent;margin-top:-5px}
+.wire.to-r::after{right:-4px;border-left:7px solid var(--lamp)}
+.wire.to-l::after{left:-4px;border-right:7px solid var(--lamp)}
+.wire i{position:absolute;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--lamp);box-shadow:0 0 6px var(--lamp-glow);opacity:0}
+.wire.to-r i{left:0;animation:busR var(--d) var(--delay) ease-in-out 2 both}
+.wire.to-l i{right:0;animation:busL var(--d) var(--delay) ease-in-out 2 both}
+@keyframes busR{0%{opacity:0;transform:translateX(0)}15%{opacity:1}85%{opacity:1}100%{opacity:0;transform:translateX(var(--w,120px))}}
+@keyframes busL{0%{opacity:0;transform:translateX(0)}15%{opacity:1}85%{opacity:1}100%{opacity:0;transform:translateX(calc(-1 * var(--w,120px)))}}
+.packet{position:fixed;left:0;top:0;z-index:60;pointer-events:none;font:600 13px var(--mono);background:var(--lamp);color:#1D1400;padding:2px 7px;border-radius:5px;box-shadow:0 2px 10px rgba(0,0,0,.25),0 0 12px var(--lamp-glow);white-space:nowrap}
+.trail{position:fixed;left:0;top:0;z-index:59;pointer-events:none;overflow:visible}
+.trail path{fill:none;stroke:var(--lamp);stroke-width:2;stroke-linecap:round}
+.trail path.head{fill:var(--lamp);stroke:none}
+.spot{position:fixed;z-index:58;pointer-events:none;border-radius:6px}
+.spot.from{box-shadow:0 0 0 2px var(--lamp),0 0 14px var(--lamp-glow)}
+.spot.to{box-shadow:0 0 0 2px var(--lamp);background:rgba(255,178,30,.18)}
+@media (prefers-reduced-motion: reduce){ .wire i{animation:none;opacity:0} }
+
+/* I/O */
+.io-split{flex:1;display:flex;flex-direction:column;min-height:0}
+.io-split label{font-size:12px;color:var(--muted);padding:6px 10px 2px;display:flex;justify-content:space-between}
+.io-split textarea,.io-split pre{margin:0;border:0;border-top:1px solid var(--line);font:13px/1.45 var(--mono);padding:8px 10px;background:var(--sunk);resize:none;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.io-split textarea{flex:0 0 32%;min-height:60px;background:var(--surface);outline:none}
+.io-split textarea:focus-visible{box-shadow:inset 0 0 0 2px var(--accent-soft)}
+.io-split pre{flex:1;min-height:40px}
+.term{flex:1;overflow:auto;font:13px/1.45 var(--mono);padding:8px 10px;background:var(--sunk);white-space:pre-wrap;word-break:break-word;cursor:text}
+.term .typed{color:var(--accent)}
+.term input{border:0;background:transparent;font:inherit;outline:none;color:var(--accent);width:60%;min-width:8ch;padding:0}
+.term .hint{color:var(--muted);font-family:var(--sans)}
+
+/* Memory */
+.memtools{display:flex;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line);font-size:12.5px;flex-wrap:wrap}
+.memtools input{width:8ch;border:1px solid var(--line);border-radius:5px;padding:3px 6px;font:13px var(--mono);background:var(--surface)}
+.memtools .btn{min-height:26px;padding:2px 8px;font-size:12.5px}
+.legend{display:flex;gap:10px;color:var(--muted);margin-left:auto}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.dump{flex:1;overflow:auto;position:relative;font:12.5px/20px var(--mono)}
+.dump .sizer{position:relative}
+.dump .rows{position:absolute;left:0;right:0;top:0}
+.drow{display:flex;height:20px;padding:0 10px;white-space:pre}
+.drow .a{color:var(--muted);width:6ch;flex:0 0 auto}
+.drow .b{width:2.6ch;text-align:center;border-radius:3px;flex:0 0 auto}
+.drow .b.z{color:var(--muted);opacity:.55}
+.drow .b.pc{background:var(--cur);opacity:1;color:var(--ink);box-shadow:inset 0 -2px 0 var(--cur-line)}
+.drow .b.sp{background:var(--sp);opacity:1;color:var(--ink);outline:1px solid var(--accent)}
+.drow .b.w{background:var(--write);opacity:1;color:var(--ink)}
+.drow .t{margin-left:10px;color:var(--muted);flex:0 0 auto}
+.drow .sep{width:1ch;flex:0 0 auto}
+.stack{flex:1;overflow:auto;font:12.5px/20px var(--mono);padding:6px 0}
+.stack table{border-collapse:collapse;width:100%}
+.stack td,.stack th{padding:0 10px;text-align:left;white-space:nowrap}
+.stack th{font:500 12px var(--sans);color:var(--muted);padding-bottom:4px}
+.stack tr.top td{background:var(--sp)}
+.stack .m{color:var(--accent);font-family:var(--sans);font-size:12px}
+
+/* Mobile nav */
+.mobnav{display:none}
+@media (max-width:1180px){
+  .work{grid-template-columns:minmax(0,1.2fr) minmax(320px,1fr);grid-template-rows:auto minmax(0,1fr) minmax(0,1fr);
+    grid-template-areas:"code cpu" "code io" "code mem"}
+}
+@media (max-width:760px){
+  .brand small{display:none}
+  .bar{padding:6px 8px;gap:8px}
+  .work{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);grid-template-areas:"main";padding:6px;gap:0}
+  .pane{grid-area:main;display:none}
+  .work[data-view="code"] .code-pane,.work[data-view="cpu"] .cpu-pane,.work[data-view="io"] .io-pane,.work[data-view="mem"] .mem-pane{display:flex}
+  .work[data-view="cpu"] .cpu-pane .pb{overflow:auto}
+  .mobnav{display:flex;flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line)}
+  .mobnav button{flex:1;border:0;background:none;padding:9px 4px 10px;font-size:13px;color:var(--muted);border-top:2px solid transparent;margin-top:-1px}
+  .mobnav button[aria-current="true"]{color:var(--ink);border-top-color:var(--accent);font-weight:600}
+  .btn .tl{display:none}
+  .btn .ts{display:inline}
+  .btn{padding:5px 9px}
+  .legend{display:none}
+}
+
+/* Dialog + toast */
+dialog{border:1px solid var(--line);border-radius:10px;padding:0;background:var(--surface);color:var(--ink);width:min(860px,94vw);max-height:88vh}
+dialog::backdrop{background:rgba(10,16,22,.45)}
+.dlg-h{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface)}
+.dlg-h h2{margin:0;font-size:17px}
+.dlg-b{padding:4px 18px 20px;overflow:auto;max-height:calc(88vh - 56px)}
+.dlg-b h3{font-size:15px;margin:20px 0 6px}
+.dlg-b p,.dlg-b li{max-width:72ch;color:var(--ink)}
+.dlg-b table{border-collapse:collapse;font-size:13px;width:100%}
+.dlg-b th,.dlg-b td{text-align:left;padding:4px 10px 4px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.dlg-b th{font-weight:600;color:var(--muted);font-size:12px}
+.dlg-b code,.dlg-b td.m{font-family:var(--mono);font-size:12.5px}
+.tblwrap{overflow-x:auto}
+.toast{position:fixed;left:50%;bottom:calc(70px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:8px 14px;border-radius:8px;font-size:13px;display:flex;gap:12px;align-items:center;z-index:50;max-width:92vw}
+.toast button{background:none;border:0;color:var(--accent-soft);font-weight:600;text-decoration:underline;padding:0}
+@media (prefers-reduced-motion:no-preference){ .lamp{transition:background-color .08s} }
+</style>
+<script data-goatcounter="https://gerald70.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<header class="bar">
+  <div class="brand">Pep/9<small>simulator</small></div>
+  <div class="tools" role="toolbar" aria-label="Simulator controls">
+    <div class="grp">
+      <select class="btn" id="examples" aria-label="Load an example program">
+        <option value="">Examples…</option>
+      </select>
+      <button class="btn" id="openBtn" aria-label="Open" title="Open a .pep or .pepo file"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 4.5h4l1.5 1.5H14v7H2z"/></svg><span class="tl">Open</span></button>
+      <button class="btn" id="saveBtn" aria-label="Save" title="Save the current tab to a file"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2v8m-3.5-3.5L8 10l3.5-3.5M3 13.5h10"/></svg><span class="tl">Save</span></button>
+      <input type="file" id="fileIn" accept=".pep,.pepo,.pepl,.txt,.asm" hidden>
+    </div>
+    <div class="grp">
+      <button class="btn" id="asmBtn" title="Assemble the source (Ctrl+B)"><span>Assemble</span></button>
+      <button class="btn primary" id="runBtn" title="Assemble, load and run the source (Ctrl+Enter)"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg><span>Run</span></button>
+      <button class="btn" id="dbgBtn" aria-label="Debug" title="Assemble, load and start debugging (Ctrl+Shift+Enter)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="9" r="4"/><path d="M8 5V2.5M4 9H1.5M14.5 9H12M5 5.5 3 3.5M11 5.5l2-2"/></svg><span class="tl">Debug</span></button>
+    </div>
+    <div class="grp" aria-label="Debugging">
+      <button class="btn" id="contBtn" aria-label="Continue" title="Continue to the next breakpoint (C)" disabled><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 2.5h2v11h-2zM6 2.5v11l8-5.5z"/></svg><span class="tl">Continue</span></button>
+      <button class="btn" id="stepBtn" title="Execute one instruction (S)" disabled><span>Step</span></button>
+      <button class="btn" id="overBtn" title="Step over a CALL (O)" disabled><span class="tl">Step over</span><span class="ts">Over</span></button>
+      <button class="btn" id="outBtn" title="Run until the current subroutine returns (U)" disabled><span class="tl">Step out</span><span class="ts">Out</span></button>
+      <button class="btn" id="pauseBtn" aria-label="Pause" title="Interrupt a running program" disabled><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z"/></svg><span class="tl">Pause</span></button>
+      <button class="btn" id="stopBtn" aria-label="Stop" title="Stop execution" disabled><svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="1"/></svg><span class="tl">Stop</span></button>
+    </div>
+    <div class="grp">
+      <button class="iconbtn" id="helpBtn" title="Instruction set and help">Help</button>
+      <button class="iconbtn" id="themeBtn" title="Switch light or dark theme" aria-label="Switch theme">◐</button>
+    </div>
+  </div>
+</header>
+
+<main class="work" id="work" data-view="code">
+  <section class="pane code-pane" aria-label="Program">
+    <div class="ph" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-ctab="src">Source</button>
+      <button class="tab" role="tab" aria-selected="false" data-ctab="obj">Object code</button>
+      <button class="tab" role="tab" aria-selected="false" data-ctab="lst">Listing</button>
+    </div>
+    <div class="pb" data-cbody="src">
+      <div class="editor">
+        <pre class="gutter" id="srcGutter" aria-hidden="true">1</pre>
+        <textarea id="src" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Assembly language source"></textarea>
+      </div>
+      <div class="errors" id="errors" hidden></div>
+      <div class="subbar">
+        <button class="btn" id="fmtBtn" title="Realign the source into Pep/9 columns">Format</button>
+        <span id="srcInfo"></span>
+      </div>
+    </div>
+    <div class="pb" data-cbody="obj" hidden>
+      <div class="editor">
+        <textarea id="obj" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="soft" style="white-space:pre-wrap" aria-label="Object code in hex" placeholder="Hex bytes separated by spaces, ending with zz.  Example:  D0 00 48 F1 FC 16 00 zz"></textarea>
+      </div>
+      <div class="errors" id="objErr" hidden></div>
+      <div class="subbar">
+        <button class="btn" id="loadObjBtn">Load</button>
+        <button class="btn" id="runObjBtn">Run object</button>
+        <button class="btn" id="dbgObjBtn">Debug object</button>
+      </div>
+    </div>
+    <div class="pb" data-cbody="lst" hidden>
+      <div class="listing" id="listing"><p class="empty">Assemble a program to see its listing. Click the dot beside any instruction to set a breakpoint.</p></div>
+    </div>
+  </section>
+
+  <section class="pane cpu-pane" aria-label="CPU">
+    <div class="ph"><h2>CPU</h2><span class="spacer"></span><label class="flowctl" title="Animate data moving between memory and registers when you step">Data flow <select id="flowSpeed"><option value="normal">Normal</option><option value="slow">Slow</option><option value="off">Off</option></select></label><span style="font-size:12px;color:var(--muted);margin-left:10px" id="ioModeNote"></span></div>
+    <div class="pb">
+      <div class="front" id="front"></div>
+      <div class="status"><span class="st" id="status">Ready</span><span id="count">0 instructions</span></div>
+    </div>
+  </section>
+
+  <section class="pane io-pane" aria-label="Input and output">
+    <div class="ph" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-iotab="batch">Batch I/O</button>
+      <button class="tab" role="tab" aria-selected="false" data-iotab="terminal">Terminal I/O</button>
+      <span class="spacer"></span>
+      <button class="btn" id="clearOutBtn">Clear output</button>
+    </div>
+    <div class="pb" data-iobody="batch">
+      <div class="io-split">
+        <label for="batchIn"><span>Input</span><span>read by DECI and charIn</span></label>
+        <textarea id="batchIn" spellcheck="false" placeholder="Type all input before running, e.g. 25 17"></textarea>
+        <label><span>Output</span></label>
+        <pre id="batchOut" aria-live="polite"></pre>
+      </div>
+    </div>
+    <div class="pb" data-iobody="terminal" hidden>
+      <div class="term" id="term"><span id="termText"></span><input id="termIn" aria-label="Terminal input" disabled><div class="hint" id="termHint">Run a program with this tab open. Typing appears here when the program asks for input.</div></div>
+    </div>
+  </section>
+
+  <section class="pane mem-pane" aria-label="Memory">
+    <div class="ph" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-mtab="dump">Memory dump</button>
+      <button class="tab" role="tab" aria-selected="false" data-mtab="stack">Run-time stack</button>
+    </div>
+    <div class="pb" data-mbody="dump">
+      <div class="memtools">
+        <label for="gotoAddr">Go to</label><input id="gotoAddr" placeholder="0000" maxlength="6" aria-label="Address in hex">
+        <button class="btn" id="gotoPC">PC</button><button class="btn" id="gotoSP">SP</button>
+        <span class="legend"><span><i style="background:var(--cur)"></i>PC</span><span><i style="background:var(--sp)"></i>SP</span><span><i style="background:var(--write)"></i>Written</span></span>
+      </div>
+      <div class="dump" id="dump"><div class="sizer" id="dumpSizer"><div class="rows" id="dumpRows"></div></div></div>
+    </div>
+    <div class="pb" data-mbody="stack" hidden>
+      <div class="stack" id="stack"></div>
+    </div>
+  </section>
+</main>
+
+<nav class="mobnav" id="mobnav" aria-label="Panels">
+  <button data-view="code" aria-current="true">Code</button>
+  <button data-view="cpu">CPU</button>
+  <button data-view="io">I/O</button>
+  <button data-view="mem">Memory</button>
+</nav>
+
+<dialog id="help" aria-labelledby="helpTitle">
+  <div class="dlg-h"><h2 id="helpTitle">Pep/9 reference</h2><button class="btn" id="helpClose">Close</button></div>
+  <div class="dlg-b" id="helpBody"></div>
+</dialog>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* Pep/9 core: assembler, loader, CPU. */
+(function (root) {
+  'use strict';
+  const MODES = ['i', 'd', 'n', 's', 'sf', 'x', 'sx', 'sfx'];
+  const ALL = MODES.slice();
+  const NOI = MODES.slice(1);
+  const INSTR = {};
+  const U = (m, op, desc) => { INSTR[m] = { op, type: 'U', desc }; };
+  const B = (m, op, desc) => { INSTR[m] = { op, type: 'B', modes: ['i', 'x'], desc }; };
+  const N = (m, op, modes, desc) => { INSTR[m] = { op, type: 'N', modes, desc }; };
+
+  U('STOP', 0x00, 'Stop execution'); U('RET', 0x01, 'Return from CALL'); U('RETTR', 0x02, 'Return from trap');
+  U('MOVSPA', 0x03, 'Move SP to A'); U('MOVFLGA', 0x04, 'Move NZVC flags to A'); U('MOVAFLG', 0x05, 'Move A to NZVC flags');
+  U('NOTA', 0x06, 'Bitwise invert A'); U('NOTX', 0x07, 'Bitwise invert X');
+  U('NEGA', 0x08, 'Negate A'); U('NEGX', 0x09, 'Negate X');
+  U('ASLA', 0x0A, 'Arithmetic shift left A'); U('ASLX', 0x0B, 'Arithmetic shift left X');
+  U('ASRA', 0x0C, 'Arithmetic shift right A'); U('ASRX', 0x0D, 'Arithmetic shift right X');
+  U('ROLA', 0x0E, 'Rotate left A'); U('ROLX', 0x0F, 'Rotate left X');
+  U('RORA', 0x10, 'Rotate right A'); U('RORX', 0x11, 'Rotate right X');
+  B('BR', 0x12, 'Branch unconditional'); B('BRLE', 0x14, 'Branch if less than or equal to');
+  B('BRLT', 0x16, 'Branch if less than'); B('BREQ', 0x18, 'Branch if equal to');
+  B('BRNE', 0x1A, 'Branch if not equal to'); B('BRGE', 0x1C, 'Branch if greater than or equal to');
+  B('BRGT', 0x1E, 'Branch if greater than'); B('BRV', 0x20, 'Branch if V'); B('BRC', 0x22, 'Branch if C');
+  B('CALL', 0x24, 'Call subroutine');
+  U('NOP0', 0x26, 'Unary no operation trap'); U('NOP1', 0x27, 'Unary no operation trap');
+  N('NOP', 0x28, ['i'], 'Nonunary no operation trap');
+  N('DECI', 0x30, NOI, 'Decimal input trap'); N('DECO', 0x38, ALL, 'Decimal output trap');
+  N('HEXO', 0x40, ALL, 'Hexadecimal output trap'); N('STRO', 0x48, ['d', 'n', 's', 'sf', 'x'], 'String output trap');
+  N('ADDSP', 0x50, ALL, 'Add to stack pointer'); N('SUBSP', 0x58, ALL, 'Subtract from stack pointer');
+  const RR = [
+    ['ADD', 0x60, ALL, 'Add to'], ['SUB', 0x70, ALL, 'Subtract from'], ['AND', 0x80, ALL, 'Bitwise AND to'],
+    ['OR', 0x90, ALL, 'Bitwise OR to'], ['CPW', 0xA0, ALL, 'Compare word to'], ['CPB', 0xB0, ALL, 'Compare byte to'],
+    ['LDW', 0xC0, ALL, 'Load word into'], ['LDB', 0xD0, ALL, 'Load byte into'],
+    ['STW', 0xE0, NOI, 'Store word from'], ['STB', 0xF0, NOI, 'Store byte from']];
+  for (const [b, op, m, d] of RR) { N(b + 'A', op, m, d + ' A'); N(b + 'X', op + 8, m, d + ' X'); }
+
+  const DECODE = new Array(256);
+  for (const [mn, d] of Object.entries(INSTR)) {
+    if (d.type === 'U') DECODE[d.op] = { mn, type: 'U' };
+    else if (d.type === 'B') { DECODE[d.op] = { mn, type: 'B', mode: 'i' }; DECODE[d.op + 1] = { mn, type: 'B', mode: 'x' }; }
+    else for (let k = 0; k < 8; k++) DECODE[d.op + k] = { mn, type: 'N', mode: MODES[k], legal: d.modes.includes(MODES[k]) };
+  }
+
+  const FLAGS = {
+    STOP: '', RET: '', RETTR: 'NZVC', MOVSPA: '', MOVFLGA: '', MOVAFLG: 'NZVC', NOT: 'NZ', NEG: 'NZV', ASL: 'NZVC', ASR: 'NZC',
+    ROL: 'C', ROR: 'C', ADD: 'NZVC', SUB: 'NZVC', AND: 'NZ', OR: 'NZ', CPW: 'NZVC', CPB: 'NZVC', LDW: 'NZ', LDB: 'NZ',
+    STW: '', STB: '', ADDSP: 'NZVC', SUBSP: 'NZVC', DECI: 'NZV'
+  };
+
+  const CHARIN = 0xFC15, CHAROUT = 0xFC16, ROM_START = 0xFC17;
+  const USER_SP = 0xFB8F, SYS_SP = 0xFC0F;
+
+  class AsmError extends Error {}
+  class PepError extends Error {}
+  const NEED_INPUT = { needInput: true };
+
+  const hex = (v, n) => (v >>> 0).toString(16).toUpperCase().padStart(n, '0');
+
+  function unescapeStr(s) {
+    const out = [];
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (c === '\\') {
+        const n = s[++i];
+        if (n === 'x' || n === 'X') { out.push(parseInt(s.substr(i + 1, 2), 16)); i += 2; }
+        else {
+          const map = { b: 8, f: 12, n: 10, r: 13, t: 9, v: 11, '0': 0 };
+          out.push(n in map ? map[n] : n.charCodeAt(0));
+        }
+      } else {
+        const code = c.charCodeAt(0);
+        if (code > 255) throw new AsmError('Character "' + c + '" is outside the 8-bit character set');
+        out.push(code);
+      }
+    }
+    return out;
+  }
+
+  const ESC = "\\\\(?:['\"bfnrtv0\\\\]|[xX][0-9A-Fa-f]{2})";
+  const RE_CHAR = new RegExp("^'(" + ESC + "|[^'\\\\])'");
+  const RE_STR = new RegExp('^"((?:' + ESC + '|[^"\\\\])*)"');
+
+  function lex(line) {
+    const toks = []; let i = 0;
+    while (i < line.length) {
+      const s = line.slice(i); let m;
+      if (/^\s/.test(s)) { i++; continue; }
+      if (s[0] === ';') { toks.push({ t: 'COMMENT', v: s.slice(1), raw: s }); break; }
+      if ((m = s.match(/^([A-Za-z_][A-Za-z0-9_]*):/))) { toks.push({ t: 'SYMDEF', v: m[1], raw: m[0] }); i += m[0].length; continue; }
+      if ((m = s.match(/^\.([A-Za-z]+)/))) { toks.push({ t: 'DOT', v: m[1].toUpperCase(), raw: m[0] }); i += m[0].length; continue; }
+      if ((m = s.match(/^0[xX]([0-9A-Fa-f]+)\b/))) { toks.push({ t: 'HEX', v: parseInt(m[1], 16), raw: m[0], len: m[1].length }); i += m[0].length; continue; }
+      if ((m = s.match(/^[+-]?[0-9]+\b/))) { toks.push({ t: 'DEC', v: parseInt(m[0], 10), raw: m[0] }); i += m[0].length; continue; }
+      if ((m = s.match(RE_CHAR))) { toks.push({ t: 'CHAR', bytes: unescapeStr(m[1]), raw: m[0] }); i += m[0].length; continue; }
+      if ((m = s.match(RE_STR))) { toks.push({ t: 'STR', bytes: unescapeStr(m[1]), raw: m[0] }); i += m[0].length; continue; }
+      if ((m = s.match(/^[A-Za-z_][A-Za-z0-9_]*/))) { toks.push({ t: 'IDENT', v: m[0], raw: m[0] }); i += m[0].length; continue; }
+      if (s[0] === ',') { toks.push({ t: 'COMMA', raw: ',' }); i++; continue; }
+      if (s[0] === "'") throw new AsmError('Malformed character constant');
+      if (s[0] === '"') throw new AsmError('Malformed string constant (check for a missing closing quote)');
+      throw new AsmError('Syntax error near "' + s.split(/\s/)[0] + '"');
+    }
+    return toks;
+  }
+
+  function constValue(tok, what) {
+    switch (tok.t) {
+      case 'DEC':
+        if (tok.v < -32768 || tok.v > 65535) throw new AsmError('Decimal constant is out of range (-32768..65535)');
+        return tok.v & 0xFFFF;
+      case 'HEX':
+        if (tok.v > 0xFFFF) throw new AsmError('Hexadecimal constant is out of range (0x0000..0xFFFF)');
+        return tok.v;
+      case 'CHAR': return tok.bytes[0];
+      case 'STR':
+        if (tok.bytes.length === 0 || tok.bytes.length > 2) throw new AsmError((what || 'Operand') + ' string must have one or two characters');
+        return tok.bytes.length === 1 ? tok.bytes[0] : (tok.bytes[0] << 8) | tok.bytes[1];
+      default: throw new AsmError('Expected a constant');
+    }
+  }
+
+  function parseLine(text, lineNo) {
+    const it = { lineNo, text, symbol: null, mn: null, dir: null, arg: null, mode: null, comment: null, error: null, bytes: [], size: 0 };
+    let toks;
+    try { toks = lex(text); } catch (e) { it.error = e.message; return it; }
+    if (toks.length && toks[toks.length - 1].t === 'COMMENT') it.comment = toks.pop().v;
+    let k = 0;
+    try {
+      if (toks[k] && toks[k].t === 'SYMDEF') {
+        it.symbol = toks[k].v; k++;
+        if (it.symbol.length > 8) throw new AsmError('Symbol "' + it.symbol + '" is longer than eight characters');
+      }
+      const r = toks.slice(k);
+      if (r.length === 0) {
+        if (it.symbol) throw new AsmError('Symbol "' + it.symbol + '" must be followed by an instruction or dot command');
+        return it;
+      }
+      const head = r[0];
+      if (head.t === 'IDENT') {
+        const mn = head.v.toUpperCase(); const d = INSTR[mn];
+        if (!d) throw new AsmError('"' + head.v + '" is not a Pep/9 mnemonic');
+        it.mn = mn;
+        if (d.type === 'U') {
+          if (r.length > 1) throw new AsmError(mn + ' is unary and takes no operand');
+          it.size = 1;
+        } else {
+          const op = r[1];
+          if (!op || !['DEC', 'HEX', 'CHAR', 'STR', 'IDENT'].includes(op.t)) throw new AsmError('Operand specifier expected after ' + mn);
+          if (op.t !== 'IDENT') constValue(op);
+          it.arg = op;
+          if (r.length > 2) {
+            if (r[2].t !== 'COMMA') throw new AsmError('Comma expected before the addressing mode');
+            const md = r[3];
+            if (!md || md.t !== 'IDENT') throw new AsmError('Addressing mode expected after the comma');
+            const mode = md.v.toLowerCase();
+            if (!MODES.includes(mode)) throw new AsmError('"' + md.v + '" is not an addressing mode');
+            if (!d.modes.includes(mode)) throw new AsmError('Illegal addressing mode "' + mode + '" for ' + mn + ' (allowed: ' + d.modes.join(', ') + ')');
+            if (r.length > 4) throw new AsmError('Unexpected text after the addressing mode');
+            it.mode = mode; it.modeGiven = true;
+          } else if (d.type === 'B') it.mode = 'i';
+          else throw new AsmError('Addressing mode required for ' + mn);
+          it.size = 3;
+        }
+      } else if (head.t === 'DOT') {
+        const dir = head.v; it.dir = dir; const a = r[1];
+        const noMore = (n) => { if (r.length > n) throw new AsmError('Unexpected text after .' + dir); };
+        switch (dir) {
+          case 'ADDRSS':
+            if (!a || a.t !== 'IDENT') throw new AsmError('.ADDRSS requires a symbol'); noMore(2); it.arg = a; it.size = 2; break;
+          case 'ALIGN':
+            if (!a || a.t !== 'DEC' || ![2, 4, 8].includes(a.v)) throw new AsmError('.ALIGN requires 2, 4, or 8'); noMore(2); it.arg = a; break;
+          case 'ASCII':
+            if (!a || a.t !== 'STR') throw new AsmError('.ASCII requires a string in double quotes'); noMore(2); it.arg = a; it.size = a.bytes.length; break;
+          case 'BLOCK':
+            if (!a || (a.t !== 'DEC' && a.t !== 'HEX')) throw new AsmError('.BLOCK requires a decimal or hex byte count');
+            if (a.v < 0 || a.v > 65535) throw new AsmError('.BLOCK count is out of range'); noMore(2); it.arg = a; it.size = a.v; break;
+          case 'BURN':
+            throw new AsmError('.BURN is only used to build an operating system and is not supported here');
+          case 'BYTE':
+            if (!a) throw new AsmError('.BYTE requires a constant');
+            if (a.t === 'DEC' && (a.v < -128 || a.v > 255)) throw new AsmError('.BYTE decimal is out of range (-128..255)');
+            if (a.t === 'HEX' && a.v > 0xFF) throw new AsmError('.BYTE hex is out of range (0x00..0xFF)');
+            if (a.t === 'STR' && a.bytes.length !== 1) throw new AsmError('.BYTE string must have exactly one character');
+            if (a.t === 'IDENT') throw new AsmError('.BYTE requires a constant, not a symbol');
+            constValue(a); noMore(2); it.arg = a; it.size = 1; break;
+          case 'END':
+            if (r.length > 1) throw new AsmError('.END takes no operand'); break;
+          case 'EQUATE':
+            if (!it.symbol) throw new AsmError('.EQUATE must have a symbol on the same line');
+            if (!a || a.t === 'IDENT') throw new AsmError('.EQUATE requires a constant');
+            constValue(a, '.EQUATE'); noMore(2); it.arg = a; break;
+          case 'WORD':
+            if (!a || a.t === 'IDENT') throw new AsmError('.WORD requires a constant (use .ADDRSS for a symbol)');
+            constValue(a, '.WORD'); noMore(2); it.arg = a; it.size = 2; break;
+          default: throw new AsmError('".' + dir + '" is not a Pep/9 dot command');
+        }
+      } else throw new AsmError('Expected a mnemonic or dot command, found "' + head.raw + '"');
+    } catch (e) { if (!(e instanceof AsmError)) throw e; it.error = e.message; it.size = 0; }
+    return it;
+  }
+
+  function assemble(src) {
+    const lines = src.replace(/\r\n?/g, '\n').split('\n');
+    while (lines.length > 1 && lines[lines.length - 1].trim() === '') lines.pop();
+    const items = [], errors = [], symbols = {};
+    let addr = 0, ended = false;
+    lines.forEach((text, i) => {
+      if (ended) {
+        const it = { lineNo: i, text, bytes: [], size: 0, addr, after: true };
+        if (text.trim() && !/^\s*;/.test(text)) { it.error = 'Only comments can follow .END'; errors.push({ line: i, msg: it.error }); }
+        else if (text.trim()) it.comment = text.trim().slice(1);
+        items.push(it); return;
+      }
+      const it = parseLine(text, i); it.addr = addr;
+      if (!it.error) {
+        if (it.symbol) {
+          if (symbols[it.symbol]) it.error = 'Symbol "' + it.symbol + '" is defined more than once';
+          else symbols[it.symbol] = { value: it.dir === 'EQUATE' ? constValue(it.arg) : addr, line: i };
+        }
+        if (it.dir === 'ALIGN') { const a = it.arg.v; it.size = (a - (addr % a)) % a; }
+        if (it.dir === 'END') ended = true;
+      }
+      if (it.error) errors.push({ line: i, msg: it.error });
+      addr += it.size || 0;
+      if (addr > ROM_START && !it.error) { it.error = 'Program extends past the end of user memory (0x' + hex(ROM_START - 1, 4) + ')'; errors.push({ line: i, msg: it.error }); }
+      items.push(it);
+    });
+    if (!ended) errors.push({ line: Math.max(0, lines.length - 1), msg: 'Missing .END sentinel' });
+    if (!symbols.charIn) symbols.charIn = { value: CHARIN, line: -1, os: true };
+    if (!symbols.charOut) symbols.charOut = { value: CHAROUT, line: -1, os: true };
+
+    const resolve = (it, tok) => {
+      if (tok.t === 'IDENT') {
+        const s = symbols[tok.v];
+        if (!s) throw new AsmError('Symbol "' + tok.v + '" is used but not defined');
+        return s.value;
+      }
+      return constValue(tok);
+    };
+    for (const it of items) {
+      if (it.error || it.after) continue;
+      try {
+        if (it.mn) {
+          const d = INSTR[it.mn];
+          if (d.type === 'U') it.bytes = [d.op];
+          else {
+            const spec = d.op + (d.type === 'B' ? (it.mode === 'x' ? 1 : 0) : MODES.indexOf(it.mode));
+            const v = resolve(it, it.arg);
+            it.bytes = [spec, (v >> 8) & 0xFF, v & 0xFF];
+          }
+        } else if (it.dir) {
+          switch (it.dir) {
+            case 'ADDRSS': { const v = resolve(it, it.arg); it.bytes = [(v >> 8) & 0xFF, v & 0xFF]; break; }
+            case 'ALIGN': case 'BLOCK': it.bytes = new Array(it.size).fill(0); break;
+            case 'ASCII': it.bytes = it.arg.bytes.slice(); break;
+            case 'BYTE': it.bytes = [constValue(it.arg) & 0xFF]; break;
+            case 'WORD': { const v = constValue(it.arg); it.bytes = [(v >> 8) & 0xFF, v & 0xFF]; break; }
+            default: it.bytes = [];
+          }
+        }
+      } catch (e) { if (!(e instanceof AsmError)) throw e; it.error = e.message; errors.push({ line: it.lineNo, msg: e.message }); }
+    }
+    errors.sort((a, b) => a.line - b.line);
+    const bytes = [];
+    if (!errors.length) items.forEach(it => { for (const b of it.bytes) bytes.push(b); });
+    return { items, errors, symbols, bytes, ok: errors.length === 0 };
+  }
+
+  function objectText(bytes) {
+    const parts = bytes.map(b => hex(b, 2));
+    const out = [];
+    for (let i = 0; i < parts.length; i += 16) out.push(parts.slice(i, i + 16).join(' '));
+    if (out.length && parts.length % 16 !== 0) out[out.length - 1] += ' zz';
+    else out.push('zz');
+    return out.join('\n');
+  }
+
+  function parseObject(text) {
+    const toks = text.trim().split(/\s+/).filter(Boolean);
+    const bytes = [];
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i];
+      if (t.toLowerCase() === 'zz') return bytes;
+      if (!/^[0-9A-Fa-f]{2}$/.test(t)) throw new PepError('Object code token "' + t + '" is not a two-digit hex byte');
+      bytes.push(parseInt(t, 16));
+    }
+    throw new PepError('Object code must end with the zz sentinel');
+  }
+
+  function formatOperand(it) {
+    if (!it.arg) return '';
+    return it.arg.raw + (it.mn && it.modeGiven ? ',' + it.mode : '');
+  }
+
+  function listingText(asm) {
+    const L = [];
+    const bar = '-'.repeat(79);
+    L.push(bar, '      Object', 'Addr  code   Symbol   Mnemon  Operand       Comment', bar);
+    for (const it of asm.items) {
+      const sym = it.symbol ? it.symbol + ':' : '';
+      const mn = it.mn || (it.dir ? '.' + it.dir : '');
+      const opnd = formatOperand(it);
+      const com = it.comment != null ? ';' + it.comment : '';
+      const hasCode = it.mn || it.dir;
+      const chunks = [];
+      for (let i = 0; i < it.bytes.length; i += 3) chunks.push(it.bytes.slice(i, i + 3).map(b => hex(b, 2)).join(''));
+      if (!hasCode) { L.push(com ? '             ' + com : ''); continue; }
+      const showAddr = it.bytes.length > 0 || it.mn;
+      L.push((showAddr ? hex(it.addr, 4) : '    ') + '  ' + (chunks[0] || '').padEnd(6) + ' ' + sym.padEnd(9) + mn.padEnd(8) + opnd.padEnd(14) + com);
+      for (let c = 1; c < chunks.length; c++) L.push('      ' + chunks[c]);
+    }
+    L.push(bar);
+    for (let i = 0; i < L.length; i++) L[i] = L[i].replace(/\s+$/, '');
+    const names = Object.keys(asm.symbols).filter(n => !asm.symbols[n].os).sort();
+    if (names.length) {
+      L.push('', '', 'Symbol table', '--------------------------------------', 'Symbol    Value        Symbol    Value', '--------------------------------------');
+      for (let i = 0; i < names.length; i += 2) {
+        const a = names[i], b = names[i + 1];
+        L.push(a.padEnd(10) + hex(asm.symbols[a].value, 4).padEnd(13) + (b ? b.padEnd(10) + hex(asm.symbols[b].value, 4) : ''));
+      }
+      L.push('--------------------------------------');
+    }
+    return L.join('\n');
+  }
+
+  function formatSource(asm) {
+    return asm.items.map(it => {
+      if (!it.mn && !it.dir) return it.comment != null ? ';' + it.comment : '';
+      const sym = it.symbol ? it.symbol + ':' : '';
+      const mn = it.mn || '.' + it.dir;
+      const line = sym.padEnd(9) + mn.padEnd(8) + formatOperand(it).padEnd(14) + (it.comment != null ? ';' + it.comment : '');
+      return line.replace(/\s+$/, '');
+    }).join('\n') + '\n';
+  }
+
+  class CPU {
+    constructor() {
+      this.mem = new Uint8Array(65536);
+      this.input = ''; this.inPos = 0; this.ioMode = 'batch';
+      this.onOutput = () => {};
+      this.installOS();
+      this.reset();
+    }
+    installOS() {
+      for (let a = ROM_START; a < 0x10000; a++) this.mem[a] = 0;
+      const vec = [USER_SP, SYS_SP, CHARIN, CHAROUT, ROM_START, 0xFC52];
+      vec.forEach((v, i) => { this.mem[0xFFF4 + 2 * i] = v >> 8; this.mem[0xFFF5 + 2 * i] = v & 0xFF; });
+    }
+    clearRAM() { for (let a = 0; a < ROM_START; a++) this.mem[a] = 0; }
+    reset() {
+      this.A = 0; this.X = 0; this.N = 0; this.Z = 0; this.V = 0; this.C = 0;
+      this.SP = (this.mem[0xFFF4] << 8) | this.mem[0xFFF5];
+      this.PC = 0; this.IS = 0; this.OS = 0; this.hasIR = false;
+      this.halted = false; this.count = 0; this.writes = new Set(); this.last = null; this.flows = [];
+      this.inPos = 0;
+    }
+    load(bytes) {
+      if (bytes.length > ROM_START) throw new PepError('Program is too large for user memory');
+      this.clearRAM();
+      bytes.forEach((b, i) => { this.mem[i] = b; });
+      this.reset();
+    }
+    rb(a) {
+      a &= 0xFFFF;
+      if (a === CHARIN) return this.readChar();
+      return this.mem[a];
+    }
+    rw(a) { return ((this.rb(a) << 8) | this.rb(a + 1)) & 0xFFFF; }
+    peekw(a) { return ((this.mem[a & 0xFFFF] << 8) | this.mem[(a + 1) & 0xFFFF]); }
+    wb(a, v) {
+      a &= 0xFFFF; v &= 0xFF;
+      if (a >= ROM_START) return; // ROM: writes are ignored
+      this.mem[a] = v; this.writes.add(a);
+      if (a === CHAROUT) this.onOutput(String.fromCharCode(v));
+    }
+    ww(a, v) { this.wb(a, v >> 8); this.wb(a + 1, v); }
+    readChar() {
+      if (this.inPos < this.input.length) {
+        const c = this.input.charCodeAt(this.inPos++) & 0xFF;
+        this.mem[CHARIN] = c; return c;
+      }
+      if (this.ioMode === 'terminal') throw NEED_INPUT;
+      throw new PepError('Attempt to read past the end of the input');
+    }
+    flow(src, dst, v, label, text) { this.flows.push({ src, dst, v: v & 0xFFFF, label, text }); }
+    ptr(a) { a &= 0xFFFF; const p = this.rw(a); this.flow({ t: 'mem', a, n: 2 }, { t: 'cpu' }, p, 'pointer'); return p; }
+    ea(mode, os) {
+      switch (mode) {
+        case 'd': return os;
+        case 'n': return this.ptr(os);
+        case 's': return (this.SP + os) & 0xFFFF;
+        case 'sf': return this.ptr(this.SP + os);
+        case 'x': return (os + this.X) & 0xFFFF;
+        case 'sx': return (this.SP + os + this.X) & 0xFFFF;
+        case 'sfx': return (this.ptr(this.SP + os) + this.X) & 0xFFFF;
+      }
+      throw new PepError('Illegal addressing mode');
+    }
+    memEnd(a, n) { return a === CHARIN ? { t: 'in' } : a === CHAROUT ? { t: 'out' } : { t: 'mem', a, n }; }
+    opW(mode, os) {
+      if (mode === 'i') { this.src = { t: 'reg', r: 'OS' }; return os; }
+      const a = this.ea(mode, os); this.src = this.memEnd(a, 2); return this.rw(a);
+    }
+    opB(mode, os) {
+      if (mode === 'i') { this.src = { t: 'reg', r: 'OS' }; return os & 0xFF; }
+      const a = this.ea(mode, os); this.src = this.memEnd(a, 1); return this.rb(a);
+    }
+    nz(v) { this.N = (v >> 15) & 1; this.Z = (v & 0xFFFF) === 0 ? 1 : 0; }
+    add(a, b, cin) {
+      const s = a + b + cin; const r = s & 0xFFFF;
+      this.C = s > 0xFFFF ? 1 : 0;
+      this.V = ((~(a ^ b)) & (a ^ r) & 0x8000) ? 1 : 0;
+      this.nz(r); return r;
+    }
+    deci() {
+      const s = this.input; let p = this.inPos; const term = this.ioMode === 'terminal';
+      const ws = c => c === ' ' || c === '\n' || c === '\t' || c === '\r';
+      for (;;) {
+        if (p >= s.length) { if (term) throw NEED_INPUT; throw new PepError('DECI found no number before the end of the input'); }
+        if (ws(s[p])) p++; else break;
+      }
+      let neg = false;
+      if (s[p] === '+' || s[p] === '-') { neg = s[p] === '-'; p++; }
+      let v = 0, nd = 0, big = false;
+      while (p < s.length && s[p] >= '0' && s[p] <= '9') {
+        v = v * 10 + (s.charCodeAt(p) - 48); nd++; p++;
+        if (v > 65536) { big = true; v %= 65536; }
+      }
+      if (p >= s.length && term) throw NEED_INPUT;
+      if (nd === 0) throw new PepError('Invalid DECI input: expected a decimal number');
+      if (p < s.length) p++;
+      this.inPos = p;
+      const signed = neg ? -v : v;
+      const V = big || signed > 32767 || signed < -32768 ? 1 : 0;
+      return { val: ((signed % 65536) + 65536) % 65536, V };
+    }
+    out(str) { for (const ch of str) this.onOutput(ch); }
+
+    step() {
+      if (this.halted) return;
+      const snap = [this.PC, this.A, this.X, this.SP, this.N, this.Z, this.V, this.C, this.inPos];
+      this.writes = new Set(); this.flows = [];
+      try { this.exec(); }
+      catch (e) {
+        if (e === NEED_INPUT) { [this.PC, this.A, this.X, this.SP, this.N, this.Z, this.V, this.C, this.inPos] = snap; }
+        throw e;
+      }
+      this.count++;
+    }
+
+    exec() {
+      const pc0 = this.PC;
+      const spec = this.mem[pc0];
+      const d = DECODE[spec];
+      this.PC = (this.PC + 1) & 0xFFFF;
+      let os = 0;
+      if (d.type !== 'U') { os = this.peekw(this.PC); this.PC = (this.PC + 2) & 0xFFFF; }
+      this.IS = spec; this.OS = os; this.hasIR = true;
+      const L = this.last = { addr: pc0, spec, os, mn: d.mn, mode: d.mode, type: d.type, operand: null };
+      if (d.type === 'N' && !d.legal) throw new PepError('Illegal addressing mode "' + d.mode + '" for ' + d.mn + ' at 0x' + hex(pc0, 4));
+      const mn = d.mn, m = d.mode;
+      switch (mn) {
+        case 'STOP': this.halted = true; return;
+        case 'RET': this.PC = this.rw(this.SP); this.flow({ t: 'mem', a: this.SP, n: 2 }, { t: 'reg', r: 'PC' }, this.PC, 'pop return address'); this.SP = (this.SP + 2) & 0xFFFF; return;
+        case 'RETTR': {
+          const f = this.mem[this.SP];
+          this.N = (f >> 3) & 1; this.Z = (f >> 2) & 1; this.V = (f >> 1) & 1; this.C = f & 1;
+          this.A = this.rw(this.SP + 1); this.X = this.rw(this.SP + 3); this.PC = this.rw(this.SP + 5); this.SP = this.rw(this.SP + 7);
+          return;
+        }
+        case 'MOVSPA': this.A = this.SP; this.flow({ t: 'reg', r: 'SP' }, { t: 'reg', r: 'A' }, this.SP, 'copy SP'); return;
+        case 'MOVFLGA': this.A = (this.N << 3) | (this.Z << 2) | (this.V << 1) | this.C; return;
+        case 'MOVAFLG': this.N = (this.A >> 3) & 1; this.Z = (this.A >> 2) & 1; this.V = (this.A >> 1) & 1; this.C = this.A & 1; return;
+        case 'NOP0': case 'NOP1': case 'NOP': if (m) L.operand = os; return;
+        case 'BR': case 'BRLE': case 'BRLT': case 'BREQ': case 'BRNE': case 'BRGE': case 'BRGT': case 'BRV': case 'BRC': case 'CALL': {
+          const tgt = m === 'i' ? os : this.rw(os + this.X);
+          L.operand = tgt;
+          const c = { BR: 1, CALL: 1, BRLE: this.N || this.Z, BRLT: this.N, BREQ: this.Z, BRNE: !this.Z, BRGE: !this.N, BRGT: !this.N && !this.Z, BRV: this.V, BRC: this.C }[mn];
+          if (mn === 'CALL') { this.SP = (this.SP - 2) & 0xFFFF; this.ww(this.SP, this.PC); this.flow({ t: 'reg', r: 'PC' }, { t: 'mem', a: this.SP, n: 2 }, this.PC, 'push return address'); }
+          if (c) { this.PC = tgt; this.flow(m === 'i' ? { t: 'reg', r: 'OS' } : { t: 'mem', a: (os + this.X) & 0xFFFF, n: 2 }, { t: 'reg', r: 'PC' }, tgt, mn === 'CALL' ? 'jump to subroutine' : 'branch taken'); }
+          L.taken = !!c;
+          return;
+        }
+        case 'DECI': {
+          const r = this.deci();
+          const a = this.ea(m, os);
+          this.ww(a, r.val); L.operand = r.val; this.flow({ t: 'in' }, this.memEnd(a, 2), r.val, 'decimal input');
+          this.nz(r.val); this.V = r.V; return;
+        }
+        case 'DECO': { const v = this.opW(m, os); L.operand = v; this.flow(this.src, { t: 'out' }, v, 'decimal output'); this.out(String(v & 0x8000 ? v - 65536 : v)); return; }
+        case 'HEXO': { const v = this.opW(m, os); L.operand = v; this.flow(this.src, { t: 'out' }, v, 'hex output'); this.out(hex(v, 4)); return; }
+        case 'STRO': {
+          let a = this.ea(m, os), s = '', n = 0;
+          L.operand = a;
+          for (;;) { const c = this.mem[a & 0xFFFF]; if (c === 0) break; s += String.fromCharCode(c); a++; if (++n > 65535) break; }
+          this.flow({ t: 'mem', a: L.operand, n: Math.min(s.length + 1, 8) }, { t: 'out' }, L.operand, 'string output', s); this.out(s); return;
+        }
+        case 'ADDSP': { const v = this.opW(m, os); L.operand = v; this.flow(this.src, { t: 'reg', r: 'SP' }, v, 'add to SP'); this.SP = this.add(this.SP, v, 0); return; }
+        case 'SUBSP': { const v = this.opW(m, os); L.operand = v; this.flow(this.src, { t: 'reg', r: 'SP' }, v, 'subtract from SP'); this.SP = this.add(this.SP, (~v) & 0xFFFF, 1); return; }
+      }
+      const base = mn.slice(0, -1), r = mn.slice(-1);
+      const get = () => (r === 'A' ? this.A : this.X);
+      const set = v => { if (r === 'A') this.A = v & 0xFFFF; else this.X = v & 0xFFFF; };
+      switch (base) {
+        case 'NOT': { const v = (~get()) & 0xFFFF; set(v); this.nz(v); return; }
+        case 'NEG': { const o = get(); const v = (-o) & 0xFFFF; set(v); this.nz(v); this.V = o === 0x8000 ? 1 : 0; return; }
+        case 'ASL': { const o = get(); const v = (o << 1) & 0xFFFF; this.C = (o >> 15) & 1; this.V = ((o ^ v) & 0x8000) ? 1 : 0; set(v); this.nz(v); return; }
+        case 'ASR': { const o = get(); const v = (o >> 1) | (o & 0x8000); this.C = o & 1; set(v); this.nz(v); return; }
+        case 'ROL': { const o = get(); const v = ((o << 1) | this.C) & 0xFFFF; this.C = (o >> 15) & 1; set(v); return; }
+        case 'ROR': { const o = get(); const v = (o >> 1) | (this.C << 15); this.C = o & 1; set(v); return; }
+        case 'ADD': { const v = this.opW(m, os); L.operand = v; this.flow(this.src, { t: 'reg', r }, v, 'add'); set(this.add(get(), v, 0)); return; }
+        case 'SUB': { const v = this.opW(m, os); L.operand = v; this.flow(this.src, { t: 'reg', r }, v, 'subtract'); set(this.add(get(), (~v) & 0xFFFF, 1)); return; }
+        case 'AND': { const v = this.opW(m, os); L.operand = v; this.flow(this.src, { t: 'reg', r }, v, 'and'); const x = get() & v; set(x); this.nz(x); return; }
+        case 'OR': { const v = this.opW(m, os); L.operand = v; this.flow(this.src, { t: 'reg', r }, v, 'or'); const x = get() | v; set(x); this.nz(x); return; }
+        case 'CPW': { const v = this.opW(m, os); L.operand = v; this.flow(this.src, { t: 'reg', r }, v, 'compare word'); this.add(get(), (~v) & 0xFFFF, 1); this.N ^= this.V; return; }
+        case 'CPB': {
+          const v = this.opB(m, os); L.operand = v; this.flow(this.src, { t: 'reg', r }, v, 'compare byte');
+          const t = ((get() & 0xFF) - v) & 0xFF;
+          this.N = (t >> 7) & 1; this.Z = t === 0 ? 1 : 0; this.V = 0; this.C = 0; return;
+        }
+        case 'LDW': { const v = this.opW(m, os); L.operand = v; this.flow(this.src, { t: 'reg', r }, v, 'load word'); set(v); this.nz(v); return; }
+        case 'LDB': {
+          const v = this.opB(m, os); L.operand = v; this.flow(this.src, { t: 'reg', r }, v, 'load byte');
+          set((get() & 0xFF00) | v); this.N = 0; this.Z = v === 0 ? 1 : 0; return;
+        }
+        case 'STW': { const a = this.ea(m, os); L.operand = get(); this.flow({ t: 'reg', r }, this.memEnd(a, 2), get(), 'store word'); this.ww(a, get()); return; }
+        case 'STB': { const a = this.ea(m, os); L.operand = get() & 0xFF; this.flow({ t: 'reg', r }, this.memEnd(a, 1), get() & 0xFF, 'store byte'); this.wb(a, get()); return; }
+      }
+      throw new PepError('Unimplemented instruction 0x' + hex(spec, 2));
+    }
+  }
+
+  root.Pep9 = { MODES, INSTR, DECODE, FLAGS, CPU, assemble, objectText, parseObject, listingText, formatSource, formatOperand,
+    hex, NEED_INPUT, PepError, CHARIN, CHAROUT, ROM_START, USER_SP };
+})(typeof module !== 'undefined' ? module.exports : window);
+
+</script>
+<script>
+(function () {
+'use strict';
+const P = window.Pep9, hex = P.hex;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ---------- storage (per-viewer convenience) ---------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('pep9.' + k); return v === null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('pep9.' + k, v); } catch (e) { /* storage unavailable */ } }
+};
+
+/* ---------- examples ---------- */
+const EXAMPLES = [
+  { name: 'Hello, world (STRO)', input: '', src:
+`;Print a greeting with the STRO trap
+         STRO    msg,d       ;Output the null-terminated string
+         STOP
+msg:     .ASCII  "Hello, world!\\n\\x00"
+         .END
+` },
+  { name: 'Write "Hi" with charOut', input: '', src:
+`;Output two characters through the memory-mapped output port
+         LDBA    'H',i       ;A <- 'H'
+         STBA    charOut,d   ;Send it to the output device
+         LDBA    'i',i       ;A <- 'i'
+         STBA    charOut,d
+         STOP
+         .END
+` },
+  { name: 'Write "Hi" (machine language)', input: '', obj: 'D0 00 48 F1 FC 16 D0 00 69 F1 FC 16 00 zz' },
+  { name: 'Add two numbers (DECI/DECO)', input: '25 17', src:
+`;Read two integers and print their sum
+         DECI    num1,d      ;Read the first number
+         DECI    num2,d      ;Read the second number
+         LDWA    num1,d      ;A <- num1
+         ADDA    num2,d      ;A <- A + num2
+         STWA    sum,d       ;sum <- A
+         STRO    msg,d
+         DECO    sum,d       ;Print the sum
+         LDBA    '\\n',i
+         STBA    charOut,d
+         STOP
+num1:    .BLOCK  2
+num2:    .BLOCK  2
+sum:     .BLOCK  2
+msg:     .ASCII  "Sum = \\x00"
+         .END
+` },
+  { name: 'Loop: sum 1 to n', input: '10', src:
+`;Sum the integers 1 through n
+         DECI    n,d         ;Read n
+         LDWX    0,i         ;X <- 0, the counter
+         LDWA    0,i         ;A <- 0, the running total
+loop:    CPWX    n,d         ;Compare the counter with n
+         BRGE    done        ;Leave the loop when counter >= n
+         ADDX    1,i         ;counter <- counter + 1
+         STWX    count,d
+         ADDA    count,d     ;total <- total + counter
+         BR      loop
+done:    STWA    total,d
+         DECO    total,d
+         STOP
+n:       .BLOCK  2
+count:   .BLOCK  2
+total:   .BLOCK  2
+         .END
+` },
+  { name: 'Echo characters until *', input: 'Pep/9 is fun*', src:
+`;Echo characters until an asterisk is read
+loop:    LDBA    charIn,d    ;Read one character
+         CPBA    '*',i       ;Is it the sentinel?
+         BREQ    done
+         STBA    charOut,d   ;Echo it
+         BR      loop
+done:    STOP
+         .END
+` },
+  { name: 'Array sum (indexed addressing)', input: '', src:
+`;Add the elements of a word array using indexed addressing
+         LDWA    0,i         ;A <- 0
+         LDWX    0,i         ;X is the byte offset into the array
+loop:    CPWX    10,i        ;5 words = 10 bytes
+         BRGE    done
+         ADDA    vector,x    ;A <- A + vector[X]
+         ADDX    2,i         ;Advance to the next word
+         BR      loop
+done:    STWA    total,d
+         STRO    msg,d
+         DECO    total,d
+         STOP
+vector:  .WORD   12
+         .WORD   -4
+         .WORD   30
+         .WORD   7
+         .WORD   55
+total:   .BLOCK  2
+msg:     .ASCII  "Total = \\x00"
+         .END
+` },
+  { name: 'Subroutine with stack parameters', input: '48 113', src:
+`;Call a subroutine that returns the larger of two numbers.
+;Parameters and the return value live on the run-time stack.
+         BR      main
+retVal:  .EQUATE 6           ;Returned value
+a:       .EQUATE 4           ;First parameter
+b:       .EQUATE 2           ;Second parameter
+max:     LDWA    a,s         ;A <- a
+         CPWA    b,s         ;Compare a with b
+         BRGE    useA
+         LDWA    b,s         ;b is larger
+useA:    STWA    retVal,s
+         RET
+main:    SUBSP   6,i         ;Allocate retVal, a, b
+         DECI    2,s         ;a <- input
+         DECI    0,s         ;b <- input
+         CALL    max
+         STRO    msg,d
+         DECO    4,s         ;Print retVal
+         ADDSP   6,i         ;Deallocate
+         STOP
+msg:     .ASCII  "Larger: \\x00"
+         .END
+` }
+];
+
+/* ---------- state ---------- */
+const cpu = new P.CPU();
+let asm = null;               // last successful assembly
+let srcAsmText = null;        // source text that produced asm
+let rowsByAddr = new Map();
+let bps = new Set();
+let state = 'idle';           // idle | running | paused | waiting | halted | error | stopped
+let debugMode = false;
+let resumeFn = null, resumeState = null;
+let timer = null;
+let ioMode = store.get('io', 'batch');
+let outBuf = '';
+let curRow = null;
+let animSnap = null, animToken = 0;
+let flowSpeed = store.get('flow', 'normal');
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+/* ---------- elements ---------- */
+const src = $('src'), gutter = $('srcGutter'), objTA = $('obj');
+src.value = store.get('source', EXAMPLES[0].src);
+objTA.value = store.get('object', '');
+$('batchIn').value = store.get('batchIn', '');
+
+/* ---------- tabs ---------- */
+function tabs(attr, bodyAttr, onChange) {
+  const btns = document.querySelectorAll('[' + attr + ']');
+  const select = name => {
+    btns.forEach(b => b.setAttribute('aria-selected', b.getAttribute(attr) === name ? 'true' : 'false'));
+    document.querySelectorAll('[' + bodyAttr + ']').forEach(p => { p.hidden = p.getAttribute(bodyAttr) !== name; });
+    if (onChange) onChange(name);
+  };
+  btns.forEach(b => b.addEventListener('click', () => select(b.getAttribute(attr))));
+  return select;
+}
+let codeTab = 'src';
+const selectCode = tabs('data-ctab', 'data-cbody', n => { codeTab = n; if (n === 'lst' && curRow) curRow.scrollIntoView({ block: 'nearest' }); });
+const selectIO = tabs('data-iotab', 'data-iobody', n => { if (state === 'idle' || state === 'halted' || state === 'error' || state === 'stopped') { ioMode = n; store.set('io', n); } updateIONote(); });
+const selectMem = tabs('data-mtab', 'data-mbody', n => { if (n === 'dump') renderDump(); else renderStack(); });
+selectIO(ioMode);
+
+const work = $('work');
+function setView(v) {
+  work.dataset.view = v;
+  document.querySelectorAll('#mobnav button').forEach(b => b.setAttribute('aria-current', b.dataset.view === v ? 'true' : 'false'));
+  if (v === 'mem') renderDump();
+}
+document.querySelectorAll('#mobnav button').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+const isMobile = () => window.matchMedia('(max-width:760px)').matches;
+
+/* ---------- editor gutter ---------- */
+let errLines = new Set();
+function updateGutter() {
+  const n = src.value.split('\n').length;
+  let h = '';
+  for (let i = 1; i <= n; i++) h += errLines.has(i - 1) ? '<span class="e">' + i + '</span>\n' : i + '\n';
+  gutter.innerHTML = h;
+  gutter.scrollTop = src.scrollTop;
+}
+src.addEventListener('input', () => { store.set('source', src.value); updateGutter(); $('srcInfo').textContent = ''; });
+src.addEventListener('scroll', () => { gutter.scrollTop = src.scrollTop; });
+src.addEventListener('keydown', e => {
+  if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    const s = src.selectionStart, line0 = src.value.lastIndexOf('\n', s - 1) + 1;
+    const col = s - line0, next = col < 9 ? 9 : col < 17 ? 17 : col < 31 ? 31 : col + 1;
+    const pad = ' '.repeat(Math.max(1, next - col));
+    src.setRangeText(pad, s, src.selectionEnd, 'end');
+    src.dispatchEvent(new Event('input'));
+  }
+});
+objTA.addEventListener('input', () => store.set('object', objTA.value));
+$('batchIn').addEventListener('input', e => store.set('batchIn', e.target.value));
+updateGutter();
+
+function gotoLine(line) {
+  selectCode('src'); if (isMobile()) setView('code');
+  const lines = src.value.split('\n');
+  let pos = 0; for (let i = 0; i < line; i++) pos += lines[i].length + 1;
+  src.focus(); src.setSelectionRange(pos, pos + (lines[line] || '').length);
+  src.scrollTop = Math.max(0, line * 20 - src.clientHeight / 3);
+}
+
+/* ---------- assembling ---------- */
+function doAssemble(quiet) {
+  const res = P.assemble(src.value);
+  const box = $('errors');
+  errLines = new Set(res.errors.map(e => e.line));
+  updateGutter();
+  if (!res.ok) {
+    box.hidden = false;
+    box.innerHTML = res.errors.map(e => '<button data-line="' + e.line + '"><b>Line ' + (e.line + 1) + '</b>  ' + esc(e.msg) + '</button>').join('');
+    box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => gotoLine(+b.dataset.line)));
+    $('srcInfo').textContent = res.errors.length + (res.errors.length === 1 ? ' error' : ' errors') + '. Fix and assemble again.';
+    selectCode('src'); if (isMobile()) setView('code');
+    setStatus('Assembly failed', 'err');
+    return null;
+  }
+  box.hidden = true; box.innerHTML = '';
+  const same = srcAsmText === src.value;
+  if (!same) bps = new Set();
+  asm = res; srcAsmText = src.value;
+  objTA.value = P.objectText(res.bytes); store.set('object', objTA.value);
+  renderListing();
+  $('srcInfo').textContent = 'Assembled ' + res.bytes.length + ' bytes.';
+  if (!quiet) { setStatus('Assembled ' + res.bytes.length + ' bytes', ''); selectCode('lst'); }
+  return res;
+}
+
+function renderListing() {
+  const host = $('listing');
+  rowsByAddr = new Map(); curRow = null;
+  if (!asm) { host.innerHTML = '<p class="empty">Assemble a program to see its listing.</p>'; return; }
+  let h = '<table><thead><tr><th aria-label="Breakpoint"></th><th>Addr</th><th>Object code</th><th>Symbol</th><th>Mnemon</th><th>Operand</th><th>Comment</th></tr></thead><tbody>';
+  for (const it of asm.items) {
+    const code = it.mn || it.dir;
+    const com = it.comment != null ? esc(';' + it.comment) : '';
+    if (!code) { h += '<tr><td class="bpc"></td><td></td><td></td><td colspan="4" class="c-com">' + com + '</td></tr>'; continue; }
+    const chunks = [];
+    for (let i = 0; i < it.bytes.length; i += 3) chunks.push(it.bytes.slice(i, i + 3).map(b => hex(b, 2)).join(''));
+    const showAddr = it.mn || it.bytes.length;
+    const isI = !!it.mn;
+    h += '<tr' + (isI ? ' data-addr="' + it.addr + '"' + (bps.has(it.addr) ? ' class="bp"' : '') : '') + '>' +
+      '<td class="bpc">' + (isI ? '<button class="bpb" title="Toggle breakpoint" aria-label="Toggle breakpoint at ' + hex(it.addr, 4) + '"></button>' : '') + '</td>' +
+      '<td class="c-addr">' + (showAddr ? hex(it.addr, 4) : '') + '</td>' +
+      '<td class="c-obj">' + (chunks[0] || '') + '</td>' +
+      '<td class="c-sym">' + (it.symbol ? esc(it.symbol + ':') : '') + '</td>' +
+      '<td>' + esc(it.mn || '.' + it.dir) + '</td>' +
+      '<td>' + esc(P.formatOperand(it)) + '</td>' +
+      '<td class="c-com">' + com + '</td></tr>';
+    for (let c = 1; c < chunks.length; c++) h += '<tr><td class="bpc"></td><td></td><td class="c-obj">' + chunks[c] + '</td><td colspan="4"></td></tr>';
+  }
+  h += '</tbody></table>';
+  const names = Object.keys(asm.symbols).filter(n => !asm.symbols[n].os).sort();
+  if (names.length) {
+    h += '<div class="symtab"><h3>Symbol table</h3><table><tbody>' + names.map(n => '<tr><td>' + esc(n) + '</td><td>' + hex(asm.symbols[n].value, 4) + '</td></tr>').join('') + '</tbody></table></div>';
+  }
+  host.innerHTML = h;
+  host.querySelectorAll('tr[data-addr]').forEach(tr => {
+    rowsByAddr.set(+tr.dataset.addr, tr);
+    tr.querySelector('.bpb').addEventListener('click', () => {
+      const a = +tr.dataset.addr;
+      if (bps.has(a)) bps.delete(a); else bps.add(a);
+      tr.classList.toggle('bp', bps.has(a));
+    });
+  });
+  highlightPC();
+}
+
+/* ---------- front panel ---------- */
+const front = $('front');
+const lampRefs = {};
+function lampRow(n) {
+  const wrap = document.createElement('div'); wrap.className = 'lamps';
+  const arr = [];
+  for (let q = 0; q < n / 4; q++) {
+    const g = document.createElement('div'); g.className = 'q';
+    for (let k = 0; k < 4; k++) { const l = document.createElement('span'); l.className = 'lamp'; g.appendChild(l); arr.push(l); }
+    wrap.appendChild(g);
+  }
+  return { wrap, arr };
+}
+function addReg(key, short, long, bits) {
+  const lbl = document.createElement('div'); lbl.className = 'lbl'; lbl.title = long;
+  lbl.innerHTML = '<b>' + short + '</b><span>' + long + '</span>';
+  const lr = lampRow(bits);
+  const hv = document.createElement('div'); hv.className = 'val';
+  const dv = document.createElement('div'); dv.className = 'val dec';
+  front.append(lbl, lr.wrap, hv, dv);
+  lampRefs[key] = { lamps: lr.arr, hv, dv, wrap: lr.wrap, lbl };
+}
+addReg('A', 'A', 'Accumulator', 16);
+addReg('X', 'X', 'Index register', 16);
+addReg('SP', 'SP', 'Stack pointer', 16);
+addReg('PC', 'PC', 'Program counter', 16);
+front.appendChild(document.createElement('hr'));
+addReg('IS', 'IS', 'Instruction specifier', 8);
+addReg('OS', 'OS', 'Operand specifier', 16);
+(function () {
+  const l2 = document.createElement('div'); l2.className = 'lbl'; l2.innerHTML = '<b>Instr</b><span>Last executed</span>';
+  const dec = document.createElement('div'); dec.className = 'decoded'; dec.id = 'decoded';
+  const l3 = document.createElement('div'); l3.className = 'lbl'; l3.innerHTML = '<b>Opnd</b><span>Operand</span>';
+  const opv = document.createElement('div'); opv.className = 'decoded'; opv.id = 'operandVal'; opv.style.color = 'var(--panel-ink)';
+  front.append(l2, dec, l3, opv);
+  front.appendChild(document.createElement('hr'));
+  const lb = document.createElement('div'); lb.className = 'lbl'; lb.innerHTML = '<b>Bus</b><span>Data flow</span>';
+  const bus = document.createElement('div'); bus.className = 'bus'; bus.id = 'bus';
+  bus.innerHTML = '<span class="bus-empty">Step through a program to see data move between the CPU and memory.</span>';
+  front.append(lb, bus);
+  front.appendChild(document.createElement('hr'));
+  const l4 = document.createElement('div'); l4.className = 'lbl'; l4.innerHTML = '<b>NZVC</b><span>Status bits</span>';
+  const fl = document.createElement('div'); fl.className = 'flags'; fl.style.gridColumn = '2/-1';
+  lampRefs.flags = {};
+  for (const f of ['N', 'Z', 'V', 'C']) {
+    const w = document.createElement('span'); w.className = 'flag';
+    const l = document.createElement('span'); l.className = 'lamp';
+    w.append(l, document.createTextNode(f)); fl.appendChild(w); lampRefs.flags[f] = l;
+  }
+  front.append(l4, fl);
+})();
+function setLamps(ref, v, bits) {
+  for (let i = 0; i < bits; i++) ref.lamps[i].classList.toggle('on', ((v >> (bits - 1 - i)) & 1) === 1);
+}
+const signed = v => (v & 0x8000 ? v - 65536 : v);
+function charOf(v) { return v >= 32 && v < 127 ? " '" + String.fromCharCode(v) + "'" : ''; }
+function updateCPU() {
+  for (const k of ['A', 'X', 'SP', 'PC']) {
+    const v = cpu[k], r = lampRefs[k];
+    setLamps(r, v, 16); r.hv.textContent = '0x' + hex(v, 4);
+    r.dv.textContent = (k === 'A' || k === 'X') ? signed(v) : v;
+  }
+  updateIR();
+  for (const f of ['N', 'Z', 'V', 'C']) lampRefs.flags[f].classList.toggle('on', !!cpu[f]);
+  $('count').textContent = cpu.count.toLocaleString() + (cpu.count === 1 ? ' instruction' : ' instructions');
+}
+function updateIR() {
+  if (cpu.hasIR) {
+    setLamps(lampRefs.IS, cpu.IS, 8); lampRefs.IS.hv.textContent = '0x' + hex(cpu.IS, 2);
+    const L = cpu.last, unary = L.type === 'U';
+    setLamps(lampRefs.OS, unary ? 0 : cpu.OS, 16); lampRefs.OS.hv.textContent = unary ? '' : '0x' + hex(cpu.OS, 4);
+    lampRefs.IS.dv.textContent = ''; lampRefs.OS.dv.textContent = unary ? 'unary' : signed(cpu.OS);
+    $('decoded').textContent = L.mn + (unary ? '' : ' 0x' + hex(L.os, 4) + ',' + L.mode) + (L.taken === false ? '   (not taken)' : '');
+    $('operandVal').textContent = L.operand == null ? '' : '0x' + hex(L.operand, 4) + '  ' + signed(L.operand) + charOf(L.operand & 0xFFFF);
+  } else {
+    setLamps(lampRefs.IS, 0, 8); setLamps(lampRefs.OS, 0, 16);
+    lampRefs.IS.hv.textContent = ''; lampRefs.OS.hv.textContent = '';
+    $('decoded').textContent = ''; $('operandVal').textContent = '';
+  }
+}
+function setStatus(text, cls) { const s = $('status'); s.textContent = text; s.className = 'st' + (cls ? ' ' + cls : ''); }
+function updateIONote() {
+  $('ioModeNote').textContent = 'Input from ' + (ioMode === 'batch' ? 'Batch I/O' : 'Terminal I/O');
+}
+
+/* ---------- memory dump (virtualised) ---------- */
+const dump = $('dump'), dumpRows = $('dumpRows');
+const ROWH = 20, NROWS = 65536 / 8;
+$('dumpSizer').style.height = (NROWS * ROWH) + 'px';
+let dumpQueued = false;
+function renderDump() {
+  if (dump.offsetParent === null) return;
+  const first = Math.max(0, Math.floor(dump.scrollTop / ROWH) - 4);
+  const count = Math.ceil(dump.clientHeight / ROWH) + 8;
+  const last = Math.min(NROWS, first + count);
+  const vw = animSnap || { mem: cpu.mem, PC: cpu.PC, SP: cpu.SP, writes: cpu.writes };
+  const m = vw.mem, vPC = vw.PC, vSP = vw.SP;
+  let pcLen = 0;
+  if (state !== 'idle') { const d = P.DECODE[m[vPC]]; pcLen = d.type === 'U' ? 1 : 3; }
+  const w = vw.writes;
+  let h = '';
+  for (let r = first; r < last; r++) {
+    const base = r * 8;
+    let bytes = '', txt = '';
+    for (let k = 0; k < 8; k++) {
+      const a = base + k, v = m[a];
+      let c = 'b';
+      if (pcLen && ((a - vPC) & 0xFFFF) < pcLen) c += ' pc';
+      else if (a === vSP && state !== 'idle') c += ' sp';
+      else if (w.has(a)) c += ' w';
+      else if (v === 0) c += ' z';
+      bytes += '<span class="' + c + '" data-a="' + a + '">' + hex(v, 2) + '</span>' + (k === 3 ? '<span class="sep"></span>' : '');
+      txt += v >= 32 && v < 127 ? String.fromCharCode(v) : '.';
+    }
+    h += '<div class="drow"><span class="a">' + hex(base, 4) + '</span>' + bytes + '<span class="t">' + esc(txt) + '</span></div>';
+  }
+  dumpRows.style.top = (first * ROWH) + 'px';
+  dumpRows.innerHTML = h;
+}
+dump.addEventListener('scroll', () => { if (!dumpQueued) { dumpQueued = true; requestAnimationFrame(() => { dumpQueued = false; renderDump(); }); } });
+function scrollDumpTo(a) {
+  const row = Math.floor((a & 0xFFFF) / 8);
+  dump.scrollTop = Math.max(0, row * ROWH - dump.clientHeight / 3);
+  renderDump();
+}
+$('gotoPC').addEventListener('click', () => scrollDumpTo(cpu.PC));
+$('gotoSP').addEventListener('click', () => scrollDumpTo(cpu.SP));
+$('gotoAddr').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const v = parseInt(e.target.value.replace(/^0x/i, ''), 16);
+    if (!isNaN(v) && v >= 0 && v <= 0xFFFF) scrollDumpTo(v); else toast('Enter a hex address from 0000 to FFFF');
+  }
+});
+
+/* ---------- stack view ---------- */
+function renderStack() {
+  const host = $('stack');
+  if (host.offsetParent === null) return;
+  const base = P.USER_SP;
+  const sp = cpu.SP;
+  if (state === 'idle') { host.innerHTML = '<p class="empty">Run or debug a program to watch the run-time stack.</p>'; return; }
+  if (sp > base || base - sp > 512) {
+    host.innerHTML = '<p class="empty">SP is 0x' + hex(sp, 4) + ', outside the user stack that starts at 0x' + hex(base, 4) + '.</p>'; return;
+  }
+  if (sp === base) { host.innerHTML = '<p class="empty">The stack is empty. SP = 0x' + hex(sp, 4) + '.</p>'; return; }
+  let h = '<table><thead><tr><th>Address</th><th>Offset</th><th>Word</th><th>Decimal</th><th></th></tr></thead><tbody>';
+  for (let a = sp; a < base; a += 2) {
+    const v = cpu.peekw(a), off = a - sp;
+    h += '<tr' + (a === sp ? ' class="top"' : '') + '><td>' + hex(a, 4) + '</td><td>' + off + ',s</td><td>' + hex(v, 4) + '</td><td>' + signed(v) + '</td><td class="m">' + (a === sp ? 'SP' : '') + '</td></tr>';
+  }
+  h += '</tbody></table>';
+  host.innerHTML = h;
+}
+
+/* ---------- listing highlight ---------- */
+function highlightPC() {
+  if (curRow) curRow.classList.remove('cur');
+  curRow = null;
+  if (!debugMode || state === 'idle') return;
+  const tr = rowsByAddr.get(cpu.PC);
+  if (tr) { tr.classList.add('cur'); curRow = tr; if (codeTab === 'lst') tr.scrollIntoView({ block: 'nearest' }); }
+}
+
+/* ---------- output ---------- */
+cpu.onOutput = ch => { outBuf += ch; };
+function flushOut() {
+  if (!outBuf) return;
+  if (cpu.ioMode === 'terminal') { $('termText').appendChild(document.createTextNode(outBuf)); $('term').scrollTop = 1e9; }
+  else { const o = $('batchOut'); o.textContent += outBuf; o.scrollTop = 1e9; }
+  outBuf = '';
+}
+$('clearOutBtn').addEventListener('click', () => { $('batchOut').textContent = ''; $('termText').textContent = ''; });
+
+/* ---------- controls ---------- */
+function updateControls() {
+  const paused = state === 'paused', running = state === 'running', waiting = state === 'waiting';
+  $('contBtn').disabled = !paused;
+  $('stepBtn').disabled = !paused;
+  $('overBtn').disabled = !paused;
+  $('outBtn').disabled = !paused;
+  $('pauseBtn').disabled = !running;
+  $('stopBtn').disabled = !(paused || running || waiting);
+  const busy = running || waiting;
+  ['asmBtn', 'runBtn', 'dbgBtn', 'loadObjBtn', 'runObjBtn', 'dbgObjBtn', 'fmtBtn'].forEach(id => { $(id).disabled = busy; });
+}
+function refreshAll() { cancelAnim(); flushOut(); updateCPU(); renderDump(); renderStack(); highlightPC(); updateControls(); }
+
+function startExec(bytes, debug) {
+  clearTimeout(timer);
+  try { cpu.load(bytes); } catch (e) { setStatus(e.message, 'err'); return; }
+  ioMode = document.querySelector('[data-iotab][aria-selected="true"]').dataset.iotab;
+  store.set('io', ioMode); updateIONote();
+  cpu.ioMode = ioMode;
+  cpu.input = ioMode === 'batch' ? $('batchIn').value : '';
+  outBuf = '';
+  if (ioMode === 'batch') $('batchOut').textContent = '';
+  else { $('termText').textContent = ''; $('termHint').hidden = true; }
+  debugMode = debug; clearBus();
+  if (debug) {
+    state = 'paused';
+    setStatus('Paused at 0x0000. Step or continue.', '');
+    if (asm && rowsByAddr.size) selectCode('lst');
+    if (isMobile()) setView(rowsByAddr.size ? 'code' : 'cpu');
+    refreshAll();
+  } else {
+    if (isMobile()) setView('io');
+    runLoop(null);
+  }
+}
+
+function runLoop(stopWhen) {
+  cancelAnim(); clearBus();
+  state = 'running'; setStatus(debugMode ? 'Running to the next stop…' : 'Running…', 'run'); updateControls();
+  const tick = () => {
+    if (state !== 'running') return;
+    const t0 = performance.now();
+    try {
+      while (performance.now() - t0 < 14) {
+        for (let k = 0; k < 500; k++) {
+          cpu.step();
+          if (cpu.halted) { finish(); return; }
+          if (stopWhen && stopWhen()) { pauseHere(); return; }
+          if (debugMode && bps.has(cpu.PC)) { pauseHere('Breakpoint at 0x' + hex(cpu.PC, 4)); return; }
+        }
+      }
+    } catch (e) { handleErr(e, () => runLoop(stopWhen), 'running'); return; }
+    flushOut(); updateCPU(); renderDump();
+    timer = setTimeout(tick, 0);
+  };
+  tick();
+}
+function pauseHere(msg) {
+  state = 'paused'; debugMode = true;
+  setStatus(msg || 'Paused at 0x' + hex(cpu.PC, 4), '');
+  refreshAll();
+}
+function finish() {
+  state = 'halted';
+  setStatus('Program stopped normally', '');
+  refreshAll();
+}
+function handleErr(e, resume, prev) {
+  if (e === P.NEED_INPUT) {
+    state = 'waiting'; resumeFn = resume; resumeState = prev;
+    setStatus('Waiting for input in Terminal I/O', 'run');
+    refreshAll();
+    const ti = $('termIn'); ti.disabled = false;
+    selectIOView();
+    ti.focus();
+    return;
+  }
+  state = 'error';
+  setStatus('Runtime error: ' + (e.message || e), 'err');
+  refreshAll();
+  if (!(e instanceof P.PepError)) console.error(e);
+}
+function selectIOView() {
+  document.querySelectorAll('[data-iotab]').forEach(b => b.setAttribute('aria-selected', b.dataset.iotab === 'terminal' ? 'true' : 'false'));
+  document.querySelectorAll('[data-iobody]').forEach(p => { p.hidden = p.dataset.iobody !== 'terminal'; });
+  if (isMobile()) setView('io');
+}
+$('termIn').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || state !== 'waiting') return;
+  const line = e.target.value; e.target.value = ''; e.target.disabled = true;
+  const sp = document.createElement('span'); sp.className = 'typed'; sp.textContent = line + '\n';
+  $('termText').appendChild(sp);
+  cpu.input += line + '\n';
+  state = resumeState; const fn = resumeFn; resumeFn = null;
+  fn();
+});
+$('term').addEventListener('click', () => { if (!$('termIn').disabled) $('termIn').focus(); });
+
+function stepInto() {
+  if (state !== 'paused') return;
+  if (animSnap) refreshAll();
+  const snap = flowSpeed !== 'off' ? { mem: cpu.mem.slice(), PC: cpu.PC, SP: cpu.SP, writes: new Set() } : null;
+  try { cpu.step(); } catch (e) { handleErr(e, stepInto, 'paused'); return; }
+  const flows = cpu.flows.slice();
+  renderBus(flows);
+  if (cpu.halted) { finish(); return; }
+  setStatus('Paused at 0x' + hex(cpu.PC, 4), '');
+  if (snap && flows.length) animateFlows(flows, snap);
+  else refreshAll();
+}
+function stepOver() {
+  if (state !== 'paused') return;
+  const spec = cpu.mem[cpu.PC];
+  if (spec === 0x24 || spec === 0x25) {
+    const ret = (cpu.PC + 3) & 0xFFFF, sp0 = cpu.SP;
+    runLoop(() => cpu.PC === ret && cpu.SP === sp0);
+  } else stepInto();
+}
+function stepOut() {
+  if (state !== 'paused') return;
+  let depth = 0;
+  runLoop(() => {
+    const L = cpu.last;
+    if (L.mn === 'CALL') depth++;
+    else if (L.mn === 'RET') { if (depth === 0) return true; depth--; }
+    return false;
+  });
+}
+function cont() { if (state === 'paused') runLoop(null); }
+function pause() { if (state === 'running') { clearTimeout(timer); pauseHere('Interrupted at 0x' + hex(cpu.PC, 4)); } }
+function stop() {
+  clearTimeout(timer);
+  if (state === 'waiting') { $('termIn').disabled = true; resumeFn = null; }
+  state = 'stopped'; debugMode = false;
+  setStatus('Stopped', '');
+  refreshAll();
+}
+
+/* ---------- object code ---------- */
+function readObject() {
+  const box = $('objErr');
+  try { const b = P.parseObject(objTA.value); box.hidden = true; return b; }
+  catch (e) { box.hidden = false; box.innerHTML = '<button>' + esc(e.message) + '</button>'; selectCode('obj'); if (isMobile()) setView('code'); setStatus('Object code has an error', 'err'); return null; }
+}
+function objMatchesListing(bytes) {
+  return asm && asm.bytes.length === bytes.length && asm.bytes.every((b, i) => b === bytes[i]);
+}
+$('loadObjBtn').addEventListener('click', () => {
+  const b = readObject(); if (!b) return;
+  clearTimeout(timer);
+  cpu.load(b); state = 'stopped'; debugMode = false;
+  setStatus('Loaded ' + b.length + ' bytes at 0x0000', '');
+  refreshAll(); scrollDumpTo(0);
+});
+$('runObjBtn').addEventListener('click', () => { const b = readObject(); if (b) { if (!objMatchesListing(b)) { asm = null; renderListing(); } startExec(b, false); } });
+$('dbgObjBtn').addEventListener('click', () => { const b = readObject(); if (b) { if (!objMatchesListing(b)) { asm = null; renderListing(); } startExec(b, true); } });
+
+/* ---------- buttons ---------- */
+$('asmBtn').addEventListener('click', () => doAssemble(false));
+$('runBtn').addEventListener('click', () => { const r = doAssemble(true); if (r) startExec(r.bytes, false); });
+$('dbgBtn').addEventListener('click', () => { const r = doAssemble(true); if (r) startExec(r.bytes, true); });
+$('contBtn').addEventListener('click', cont);
+$('stepBtn').addEventListener('click', stepInto);
+$('overBtn').addEventListener('click', stepOver);
+$('outBtn').addEventListener('click', stepOut);
+$('pauseBtn').addEventListener('click', pause);
+$('stopBtn').addEventListener('click', stop);
+$('fmtBtn').addEventListener('click', () => {
+  const r = P.assemble(src.value);
+  if (!r.ok) { doAssemble(true); toast('Fix the errors before formatting'); return; }
+  const prev = src.value;
+  src.value = P.formatSource(r); src.dispatchEvent(new Event('input'));
+  toast('Source formatted', () => { src.value = prev; src.dispatchEvent(new Event('input')); });
+});
+
+document.addEventListener('keydown', e => {
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key === 'Enter') { e.preventDefault(); (e.shiftKey ? $('dbgBtn') : $('runBtn')).click(); return; }
+  if (mod && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); $('asmBtn').click(); return; }
+  const t = e.target;
+  if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT') ) return;
+  if (mod || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (state === 'paused') {
+    if (k === 's') stepInto(); else if (k === 'o') stepOver(); else if (k === 'u') stepOut(); else if (k === 'c') cont();
+  }
+  if (k === 'escape' && (state === 'running' || state === 'paused')) stop();
+});
+
+/* ---------- examples ---------- */
+const exSel = $('examples');
+EXAMPLES.forEach((ex, i) => { const o = document.createElement('option'); o.value = i; o.textContent = ex.name; exSel.appendChild(o); });
+exSel.addEventListener('change', () => {
+  const ex = EXAMPLES[+exSel.value]; exSel.value = '';
+  if (!ex) return;
+  if (state === 'running' || state === 'waiting') stop();
+  const prevSrc = src.value, prevObj = objTA.value, prevIn = $('batchIn').value;
+  $('batchIn').value = ex.input; store.set('batchIn', ex.input);
+  if (ex.obj) { objTA.value = ex.obj; store.set('object', ex.obj); selectCode('obj'); }
+  else { src.value = ex.src; src.dispatchEvent(new Event('input')); errLines = new Set(); updateGutter(); $('errors').hidden = true; selectCode('src'); }
+  if (isMobile()) setView('code');
+  toast('Loaded "' + ex.name + '"', () => {
+    src.value = prevSrc; src.dispatchEvent(new Event('input')); objTA.value = prevObj; store.set('object', prevObj);
+    $('batchIn').value = prevIn; store.set('batchIn', prevIn);
+  });
+});
+
+/* ---------- open / save ---------- */
+$('openBtn').addEventListener('click', () => $('fileIn').click());
+$('fileIn').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const text = await f.text();
+  if (/\.pepo$/i.test(f.name) || /^\s*([0-9A-Fa-f]{2}\s+)+zz\s*$/.test(text)) { objTA.value = text; store.set('object', text); selectCode('obj'); }
+  else { src.value = text; src.dispatchEvent(new Event('input')); selectCode('src'); }
+  toast('Opened ' + f.name);
+});
+const inClaude = !!(window.claude && typeof window.claude.use === 'function');
+let downloads = null;
+if (inClaude) {
+  window.claude.use('downloads').then(d => { downloads = d; if (!d) $('saveBtn').hidden = true; }).catch(() => { $('saveBtn').hidden = true; });
+}
+async function saveText(name, text) {
+  if (inClaude) {
+    if (!downloads) { toast('Saving files is not available in this view'); return; }
+    try { await downloads.save({ filename: name + '.txt', data: text }); toast('Saved ' + name + '.txt'); }
+    catch (err) { if (err && err.code !== 'declined') toast('Could not save the file'); }
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+$('saveBtn').addEventListener('click', () => {
+  if (codeTab === 'obj') saveText('program.pepo', objTA.value);
+  else if (codeTab === 'lst') { if (!asm) { toast('Assemble first to save a listing'); return; } saveText('program.pepl', P.listingText(asm)); }
+  else saveText('program.pep', src.value);
+});
+
+/* ---------- toast ---------- */
+let toastT = null;
+function toast(msg, undo) {
+  const t = $('toast');
+  t.innerHTML = '<span>' + esc(msg) + '</span>' + (undo ? '<button>Undo</button>' : '');
+  t.hidden = false;
+  if (undo) t.querySelector('button').addEventListener('click', () => { undo(); t.hidden = true; });
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, undo ? 6000 : 2600);
+}
+
+/* ---------- theme ---------- */
+const savedTheme = store.get('theme', '');
+if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+$('themeBtn').addEventListener('click', () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next; store.set('theme', next);
+});
+
+/* ---------- help ---------- */
+function buildHelp() {
+  const rows = Object.entries(P.INSTR).sort((a, b) => a[1].op - b[1].op).map(([mn, d]) => {
+    const bits = d.op.toString(2).padStart(8, '0');
+    let pat;
+    if (d.type === 'U') pat = bits.slice(0, 4) + ' ' + bits.slice(4);
+    else if (d.type === 'B') pat = bits.slice(0, 4) + ' ' + bits.slice(4, 7) + 'a';
+    else if (d.op >= 0x60) pat = bits.slice(0, 4) + ' ' + (mn.endsWith('X') ? '1' : '0') + 'aaa';
+    else pat = bits.slice(0, 4) + ' ' + bits.slice(4, 5) + 'aaa';
+    const base = mn.length > 3 && /[AX]$/.test(mn) && !['NOP0', 'NOP1'].includes(mn) && !['MOVSPA', 'MOVFLGA'].includes(mn) ? mn.slice(0, -1) : mn;
+    const flags = P.FLAGS[mn] ?? P.FLAGS[base] ?? '';
+    return '<tr><td class="m">' + pat + '</td><td class="m">' + mn + '</td><td>' + d.desc + '</td><td class="m">' + (d.type === 'U' ? 'U' : d.modes.join(', ')) + '</td><td class="m">' + flags + '</td></tr>';
+  }).join('');
+  $('helpBody').innerHTML = `
+<p>This simulator runs Pep/9 assembly language and machine language in the browser. Write or open a program, then use <b>Run</b> to execute it or <b>Debug</b> to step through it one instruction at a time.</p>
+<h3>Typical workflow</h3>
+<ol>
+<li>Type a program in <b>Source</b>, or pick one from <b>Examples</b>. It must end with <code>.END</code>.</li>
+<li>If the program reads input, type it in <b>Batch I/O</b> before running, or open <b>Terminal I/O</b> to type it while the program runs.</li>
+<li>Press <b>Run</b>. Errors are listed under the editor; click one to jump to its line.</li>
+<li>Press <b>Debug</b> to pause before the first instruction. The listing highlights the next instruction, the CPU panel shows the registers, and the memory dump marks the PC, SP and the bytes just written.</li>
+</ol>
+<h3>Debugging</h3>
+<p><b>Step</b> executes one instruction. <b>Step over</b> runs a whole CALL as one step. <b>Step out</b> runs until the current subroutine returns. <b>Continue</b> runs to the next breakpoint. Click the dot beside a listing line to set a breakpoint. <b>Pause</b> interrupts a running program, for example an infinite loop, and drops you into the debugger.</p>
+<p>Keyboard: Ctrl+Enter runs, Ctrl+Shift+Enter debugs, Ctrl+B assembles. While paused: S step, O step over, U step out, C continue, Esc stop.</p>
+<h3>Machine language</h3>
+<p>The <b>Object code</b> tab accepts hex bytes separated by spaces and terminated by <code>zz</code>, for example <code>D0 00 48 F1 FC 16 00 zz</code>. Programs are loaded at address 0000.</p>
+<h3>Addressing modes</h3>
+<div class="tblwrap"><table><thead><tr><th>aaa</th><th>Mode</th><th>Letters</th><th>Operand</th></tr></thead><tbody>
+<tr><td class="m">000</td><td>Immediate</td><td class="m">i</td><td class="m">OprndSpec</td></tr>
+<tr><td class="m">001</td><td>Direct</td><td class="m">d</td><td class="m">Mem[OprndSpec]</td></tr>
+<tr><td class="m">010</td><td>Indirect</td><td class="m">n</td><td class="m">Mem[Mem[OprndSpec]]</td></tr>
+<tr><td class="m">011</td><td>Stack-relative</td><td class="m">s</td><td class="m">Mem[SP + OprndSpec]</td></tr>
+<tr><td class="m">100</td><td>Stack-relative deferred</td><td class="m">sf</td><td class="m">Mem[Mem[SP + OprndSpec]]</td></tr>
+<tr><td class="m">101</td><td>Indexed</td><td class="m">x</td><td class="m">Mem[OprndSpec + X]</td></tr>
+<tr><td class="m">110</td><td>Stack-indexed</td><td class="m">sx</td><td class="m">Mem[SP + OprndSpec + X]</td></tr>
+<tr><td class="m">111</td><td>Stack-deferred indexed</td><td class="m">sfx</td><td class="m">Mem[Mem[SP + OprndSpec] + X]</td></tr>
+</tbody></table></div>
+<p>Branches and CALL use a single mode bit: <code>a = 0</code> immediate, <code>a = 1</code> indexed.</p>
+<h3>Instruction set</h3>
+<div class="tblwrap"><table><thead><tr><th>Specifier</th><th>Mnemonic</th><th>Meaning</th><th>Modes</th><th>Status bits</th></tr></thead><tbody>${rows}</tbody></table></div>
+<h3>Dot commands</h3>
+<div class="tblwrap"><table><thead><tr><th>Command</th><th>Meaning</th></tr></thead><tbody>
+<tr><td class="m">.ADDRSS sym</td><td>Two bytes holding the address of a symbol</td></tr>
+<tr><td class="m">.ALIGN n</td><td>Pad with zeros to a multiple of 2, 4 or 8</td></tr>
+<tr><td class="m">.ASCII "str"</td><td>The bytes of a string. Escapes: \\n \\t \\b \\f \\r \\v \\0 \\" \\' \\\\ \\xHH</td></tr>
+<tr><td class="m">.BLOCK n</td><td>n bytes of zeros</td></tr>
+<tr><td class="m">.BYTE v</td><td>One byte</td></tr>
+<tr><td class="m">.WORD v</td><td>One word (two bytes)</td></tr>
+<tr><td class="m">.EQUATE v</td><td>Give the symbol on this line a value; no storage</td></tr>
+<tr><td class="m">.END</td><td>End of program; required</td></tr>
+</tbody></table></div>
+<h3>Memory map and I/O</h3>
+<p>User programs load at 0000. The user stack starts at FB8F and grows toward lower addresses. Input is memory-mapped at <code>charIn</code> (FC15) and output at <code>charOut</code> (FC16); both symbols are predefined. The operating system region from FC17 to FFFF is read-only, and the machine vectors sit at FFF4–FFFF.</p>
+<p>The trap instructions DECI, DECO, HEXO, STRO, NOP0, NOP1 and NOP run as single instructions with the same effect as the Pep/9 operating system routines, so the debugger never steps into operating system code.</p>
+<h3>Saving your work</h3>
+<p>Your source, object code and batch input are kept in this browser between visits. Use Save to keep a copy of the current tab as a file.</p>`;
+}
+$('helpBtn').addEventListener('click', () => { if (!$('helpBody').innerHTML) buildHelp(); $('help').showModal(); });
+$('helpClose').addEventListener('click', () => $('help').close());
+
+/* ---------- data-flow animation ---------- */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const endName = e => {
+  switch (e.t) {
+    case 'reg': return e.r === 'OS' ? 'OS (operand spec)' : e.r;
+    case 'cpu': return 'CPU (address)';
+    case 'mem': return 'Mem[' + hex(e.a, 4) + ']';
+    case 'in': return 'Input';
+    case 'out': return 'Output';
+  }
+  return '';
+};
+const cpuSide = e => e.t === 'reg' || e.t === 'cpu';
+function fmtVal(f) {
+  if (f.text != null) return '"' + (f.text.length > 12 ? f.text.slice(0, 12) + '…' : f.text).replace(/\n/g, '\\n') + '"';
+  const byte = (f.src.n === 1 || f.dst.n === 1);
+  return '0x' + hex(f.v, byte ? 2 : 4);
+}
+function clearBus() {
+  const b = $('bus'); if (b) b.innerHTML = '<span class="bus-empty">Step through a program to see data move between the CPU and memory.</span>';
+}
+function renderBus(flows) {
+  const b = $('bus');
+  if (!flows.length) { b.innerHTML = '<span class="bus-empty">No data moved between the CPU and memory on this step.</span>'; return; }
+  const dur = flowSpeed === 'slow' ? 1.5 : 0.65;
+  b.innerHTML = flows.map((f, i) => {
+    // CPU on the left, memory and I/O on the right, matching the screen layout
+    let left, right, toLeft;
+    if (cpuSide(f.src) && !cpuSide(f.dst)) { left = f.src; right = f.dst; toLeft = false; }
+    else if (!cpuSide(f.src) && cpuSide(f.dst)) { left = f.dst; right = f.src; toLeft = true; }
+    else if (cpuSide(f.src)) { left = f.dst; right = f.src; toLeft = true; }
+    else { left = f.src; right = f.dst; toLeft = false; }
+    return '<div class="flow" style="--d:' + dur + 's;--delay:' + (i * dur) + 's">' +
+      '<span class="end">' + esc(endName(left)) + '</span>' +
+      '<span class="wire ' + (toLeft ? 'to-l' : 'to-r') + '"><i></i></span>' +
+      '<span class="end">' + esc(endName(right)) + '</span>' +
+      '<span class="fv">' + esc(fmtVal(f)) + '</span><span class="fl">' + esc(f.label) + '</span></div>';
+  }).join('');
+  b.querySelectorAll('.wire').forEach(w => w.style.setProperty('--w', Math.max(0, w.offsetWidth - 8) + 'px'));
+}
+function visibleRect(el) {
+  if (!el || el.offsetParent === null) return null;
+  const r = el.getBoundingClientRect();
+  if (r.width === 0 || r.height === 0 || r.bottom < 0 || r.top > innerHeight) return null;
+  return r;
+}
+function memRect(a, n) {
+  if (dump.offsetParent === null) return null;
+  const row = Math.floor(a / 8), top = row * ROWH;
+  if (top < dump.scrollTop || top > dump.scrollTop + dump.clientHeight - ROWH * 2) scrollDumpTo(a);
+  const first = dumpRows.querySelector('[data-a="' + a + '"]');
+  if (!first) return null;
+  const lastA = Math.min(a + n - 1, row * 8 + 7);
+  const last = dumpRows.querySelector('[data-a="' + lastA + '"]') || first;
+  const r1 = first.getBoundingClientRect(), r2 = last.getBoundingClientRect();
+  const dr = dump.getBoundingClientRect();
+  if (r1.top < dr.top || r1.bottom > dr.bottom) return null;
+  return { left: r1.left, top: r1.top, right: r2.right, bottom: r2.bottom, width: r2.right - r1.left, height: r1.height };
+}
+function endRect(e) {
+  switch (e.t) {
+    case 'reg': { const r = lampRefs[e.r]; return r ? visibleRect(r.wrap) : null; }
+    case 'cpu': return visibleRect($('operandVal'));
+    case 'mem': return memRect(e.a, e.n || 1);
+    case 'in': return visibleRect(cpu.ioMode === 'batch' ? $('batchIn') : $('term'));
+    case 'out': return visibleRect(cpu.ioMode === 'batch' ? $('batchOut') : $('term'));
+  }
+  return null;
+}
+function spot(r, cls, ms) {
+  if (!r) return;
+  const d = document.createElement('div'); d.className = 'spot ' + cls;
+  d.style.left = (r.left - 3) + 'px'; d.style.top = (r.top - 3) + 'px';
+  d.style.width = (r.width + 6) + 'px'; d.style.height = (r.height + 6) + 'px';
+  document.body.appendChild(d);
+  d.animate([{ opacity: 0 }, { opacity: 1, offset: .2 }, { opacity: 1, offset: .75 }, { opacity: 0 }], { duration: ms, easing: 'ease-out' }).finished.then(() => d.remove(), () => d.remove());
+}
+async function flyOne(f, my) {
+  const dur = flowSpeed === 'slow' ? 1500 : 650;
+  const sr = endRect(f.src), dr = endRect(f.dst);
+  spot(sr, 'from', dur + 250);
+  if (!sr || !dr || reduceMotion.matches) {
+    await sleep(dur * 0.5); if (my !== animToken) return;
+    spot(dr, 'to', dur); await sleep(dur * 0.5); return;
+  }
+  const p = document.createElement('div'); p.className = 'packet'; p.textContent = fmtVal(f);
+  document.body.appendChild(p);
+  const pw = p.offsetWidth, ph = p.offsetHeight;
+  const x0 = sr.left + sr.width / 2, y0 = sr.top + sr.height / 2;
+  const x2 = dr.left + dr.width / 2, y2 = dr.top + dr.height / 2;
+  const dist = Math.hypot(x2 - x0, y2 - y0);
+  const x1 = (x0 + x2) / 2, y1 = Math.min(y0, y2) - Math.min(48, 14 + dist * 0.08);
+  // trail showing the direction of travel
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg'); svg.setAttribute('class', 'trail');
+  svg.setAttribute('width', innerWidth); svg.setAttribute('height', innerHeight);
+  const path = document.createElementNS(svgNS, 'path');
+  path.setAttribute('d', 'M' + x0 + ' ' + y0 + ' Q' + x1 + ' ' + y1 + ' ' + x2 + ' ' + y2);
+  const ang = Math.atan2(y2 - y1, x2 - x1), ah = 9;
+  const head = document.createElementNS(svgNS, 'path');
+  head.setAttribute('d', 'M' + x2 + ' ' + y2 + ' L' + (x2 - ah * Math.cos(ang - .45)) + ' ' + (y2 - ah * Math.sin(ang - .45)) + ' L' + (x2 - ah * Math.cos(ang + .45)) + ' ' + (y2 - ah * Math.sin(ang + .45)) + ' Z');
+  head.setAttribute('class', 'head');
+  svg.append(path, head); document.body.appendChild(svg);
+  const len = path.getTotalLength();
+  path.style.strokeDasharray = len; path.style.strokeDashoffset = len;
+  path.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: dur * 0.85, easing: 'ease-in-out', fill: 'forwards' });
+  const frames = [];
+  for (let i = 0; i <= 16; i++) {
+    const t = i / 16, u = 1 - t;
+    const x = u * u * x0 + 2 * u * t * x1 + t * t * x2, y = u * u * y0 + 2 * u * t * y1 + t * t * y2;
+    frames.push({ transform: 'translate(' + (x - pw / 2) + 'px,' + (y - ph / 2) + 'px)', opacity: i === 0 ? 0 : 1 });
+  }
+  const anim = p.animate(frames, { duration: dur, easing: 'ease-in-out', fill: 'forwards' });
+  try { await anim.finished; } catch (e) { /* cancelled */ }
+  if (my === animToken) spot(dr, 'to', Math.max(500, dur * 0.7));
+  p.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, fill: 'forwards' });
+  svg.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 400, delay: 150, fill: 'forwards' });
+  await sleep(200);
+  p.remove(); setTimeout(() => svg.remove(), 400);
+}
+async function animateFlows(flows, snap) {
+  const my = ++animToken;
+  animSnap = snap;
+  updateControls(); highlightPC(); renderDump(); updateIR();
+  for (const f of flows) {
+    if (my !== animToken) return;
+    await flyOne(f, my);
+  }
+  if (my !== animToken) return;
+  animSnap = null;
+  refreshAll();
+}
+function cancelAnim() {
+  if (!animSnap && !document.querySelector('.packet,.trail')) return;
+  animToken++; animSnap = null;
+  document.querySelectorAll('.packet,.trail').forEach(n => n.remove());
+}
+const flowSel = $('flowSpeed');
+flowSel.value = flowSpeed;
+flowSel.addEventListener('change', () => { flowSpeed = flowSel.value; store.set('flow', flowSpeed); if (flowSpeed === 'off') { cancelAnim(); refreshAll(); } });
+
+/* ---------- init ---------- */
+window.addEventListener('resize', () => renderDump());
+updateIONote();
+updateControls();
+updateCPU();
+requestAnimationFrame(renderDump);
+})();
+
+</script>
+</body>
+</html>
