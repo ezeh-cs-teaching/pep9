@@ -3,7 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Pep/9 Simulator</title>
+<title>Pep/9 Simulator Online – Pep/9 Assembler, Debugger and CPU Visualizer</title>
+<meta name="description" content="Free online Pep/9 simulator that runs in any web browser. Assemble, run and step through Pep/9 assembly and machine language with a CPU panel, memory dump, debugger and data-flow animation. Nothing to install.">
+<link rel="canonical" href="https://ezeh-cs-teaching.github.io/pep9/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Pep/9 Simulator Online">
+<meta property="og:description" content="Free online Pep/9 simulator that runs in any web browser. Assemble, run and step through Pep/9 assembly and machine language with a CPU panel, memory dump, debugger and data-flow animation. Nothing to install.">
+<meta property="og:url" content="https://ezeh-cs-teaching.github.io/pep9/">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Pep/9 Simulator", "url": "https://ezeh-cs-teaching.github.io/pep9/", "description": "Free online Pep/9 simulator that runs in any web browser. Assemble, run and step through Pep/9 assembly and machine language with a CPU panel, memory dump, debugger and data-flow animation. Nothing to install.", "applicationCategory": "EducationalApplication", "operatingSystem": "Any (runs in a web browser)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Person", "name": "Dubem (Anthony) Ezeh"}, "keywords": "Pep/9, Pep9, Pep/9 simulator, Pep/9 assembler, Pep/9 online, computer systems, assembly language, machine language"}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -255,6 +263,7 @@ dialog::backdrop{background:rgba(10,16,22,.45)}
 <script data-goatcounter="https://gerald70.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </head>
 <body>
+<noscript><p style="padding:16px;max-width:70ch">Pep/9 Simulator is a free, browser-based simulator for the Pep/9 virtual computer used in <i>Computer Systems</i> by J. Stanley Warford and <i>Computer Science Illuminated</i>. Write and assemble Pep/9 assembly language, run machine language, and debug programs step by step. Please enable JavaScript to use it.</p></noscript>
 <header class="bar">
   <div class="brand">Pep/9<small>simulator</small></div>
   <div class="tools" role="toolbar" aria-label="Simulator controls">
@@ -358,8 +367,8 @@ dialog::backdrop{background:rgba(10,16,22,.45)}
     </div>
     <div class="pb" data-mbody="dump">
       <div class="memtools">
-        <label for="gotoAddr">Go to</label><input id="gotoAddr" placeholder="0000" maxlength="6" aria-label="Address in hex">
-        <button class="btn" id="gotoPC">PC</button><button class="btn" id="gotoSP">SP</button>
+        <label for="gotoAddr">Go to</label><input id="gotoAddr" placeholder="0000" maxlength="6" aria-label="Address in hex" title="Type a hex address such as 001C or FC16 and press Enter">
+        <button class="btn" id="gotoPC" title="Program counter: scroll to the address of the next instruction to execute (highlighted in yellow)">PC</button><button class="btn" id="gotoSP" title="Stack pointer: scroll to the top of the run-time stack (outlined in blue)">SP</button>
         <span class="legend"><span><i style="background:var(--cur)"></i>PC</span><span><i style="background:var(--sp)"></i>SP</span><span><i style="background:var(--write)"></i>Written</span></span>
       </div>
       <div class="dump" id="dump"><div class="drow dhead" title="Each byte's address is the row address plus the column offset"><span class="a">Addr</span><span class="b">+0</span><span class="b">+1</span><span class="b">+2</span><span class="b">+3</span><span class="sep"></span><span class="b">+4</span><span class="b">+5</span><span class="b">+6</span><span class="b">+7</span><span class="t">Text</span></div><div class="sizer" id="dumpSizer"><div class="rows" id="dumpRows"></div></div></div>
@@ -1265,6 +1274,8 @@ function updateCPU() {
     r.dv.textContent = (k === 'A' || k === 'X') ? signed(v) : v;
   }
   updateIR();
+  $('gotoPC').title = 'Program counter (PC = 0x' + hex(cpu.PC, 4) + '): scroll to the address of the next instruction to execute (highlighted in yellow)';
+  $('gotoSP').title = 'Stack pointer (SP = 0x' + hex(cpu.SP, 4) + '): scroll to the top of the run-time stack (outlined in blue). The user stack starts at FB8F and grows toward lower addresses.';
   for (const f of ['N', 'Z', 'V', 'C']) lampRefs.flags[f].classList.toggle('on', !!cpu[f]);
   $('count').textContent = cpu.count.toLocaleString() + (cpu.count === 1 ? ' instruction' : ' instructions');
 }
